@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "e7821a9cf01f",
+  "session_id": "c5b13f4d-5d79-4d50-9dca-88800c25251c",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-13T06:39:00.521016Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "WhatTheLoad/ContentView.swift",
+    "WhatTheLoad/Monitors/CPUMonitor.swift"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "69b0adf0-0eab-46b0-a110-5f40e63f58da",
+  "token_usage": {
+    "input_tokens": 68,
+    "cache_creation_tokens": 46935,
+    "cache_read_tokens": 370571,
+    "output_tokens": 25,
+    "api_call_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-13T06:39:00.512614Z",
+    "agent_lines": 80,
+    "human_added": 3008,
+    "human_modified": 2,
+    "human_removed": 0,
+    "total_committed": 3090,
+    "agent_percentage": 2.5889967637540456
+  }
+}
