@@ -1,0 +1,47 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "5838ce1d2516",
+  "session_id": "c5b13f4d-5d79-4d50-9dca-88800c25251c",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-26T20:58:40.11325Z",
+  "branch": "master",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "WhatTheLoad.xcodeproj/project.pbxproj",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/Contents.json",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_128x128.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_16x16.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_16x16@2x.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_256x256.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_32x32.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_32x32@2x.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_512x512.png",
+    "WhatTheLoad/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png",
+    "WhatTheLoad/Info.plist",
+    "WhatTheLoad/Monitors/WiFiMonitor.swift",
+    "WhatTheLoad/WhatTheLoad.entitlements",
+    "default.profraw"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "7a286c8f-64b0-4cf0-8ffe-e3658a1471ff",
+  "checkpoint_transcript_start": 53,
+  "transcript_lines_at_start": 53,
+  "token_usage": {
+    "input_tokens": 578,
+    "cache_creation_tokens": 137446,
+    "cache_read_tokens": 5924183,
+    "output_tokens": 2724,
+    "api_call_count": 70
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-26T20:58:39.971358Z",
+    "agent_lines": 40,
+    "human_added": 621,
+    "human_modified": 21,
+    "human_removed": 0,
+    "total_committed": 682,
+    "agent_percentage": 5.865102639296188
+  }
+}
