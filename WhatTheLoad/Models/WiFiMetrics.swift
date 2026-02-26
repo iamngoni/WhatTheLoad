@@ -3,6 +3,7 @@ import Foundation
 struct WiFiMetrics {
     let timestamp: Date
     let ssid: String?
+    let routerIP: String?
     let band: WiFiBand?
     let linkRate: Double? // Mbps
     let signalStrength: Int? // dBm

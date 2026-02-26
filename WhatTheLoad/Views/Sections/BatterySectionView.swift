@@ -30,7 +30,7 @@ struct BatterySectionView: View {
                         }
 
                         if let timeRemaining = current.timeRemaining {
-                            Text(formatTimeRemaining(timeRemaining))
+                            Text(formatTimeEstimate(timeRemaining, isCharging: current.isCharging))
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundColor(.secondary)
                         }
@@ -96,9 +96,11 @@ struct BatterySectionView: View {
         }
     }
 
-    private func formatTimeRemaining(_ seconds: TimeInterval) -> String {
+    private func formatTimeEstimate(_ seconds: TimeInterval, isCharging: Bool) -> String {
         let hours = Int(seconds / 3600)
         let minutes = Int((seconds.truncatingRemainder(dividingBy: 3600)) / 60)
-        return String(format: "%d:%02d remaining", hours, minutes)
+        return isCharging
+            ? String(format: "%d:%02d until full", hours, minutes)
+            : String(format: "%d:%02d remaining", hours, minutes)
     }
 }

@@ -6,6 +6,8 @@ class ProcessMonitor {
     var history: [ProcessMetrics] = []
 
     private var timer: Timer?
+    private var previousCPUTimesByPID: [pid_t: UInt64] = [:]
+    private var previousSampleTimestamp: Date?
 
     func start(interval: TimeInterval = 3.0) {
         timer?.invalidate()
@@ -32,6 +34,11 @@ class ProcessMonitor {
     }
 
     private func fetchMetrics() -> ProcessMetrics? {
+        let sampleTime = Date()
+        let elapsed = previousSampleTimestamp.map { sampleTime.timeIntervalSince($0) } ?? 0
+        let maxCPUPercent = Double(ProcessInfo.processInfo.activeProcessorCount) * 100.0
+        var currentCPUTimesByPID: [pid_t: UInt64] = [:]
+
         var pids = [pid_t](repeating: 0, count: 1024)
         let count = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
 
@@ -54,30 +61,50 @@ class ProcessMonitor {
             let name = (path as NSString).lastPathComponent
 
             let memoryUsage = info.pti_resident_size
+            let totalCPUTime = UInt64(info.pti_total_user + info.pti_total_system)
+            currentCPUTimesByPID[pid] = totalCPUTime
 
             // Only include processes with significant memory usage
             guard memoryUsage > 1_000_000 else { return nil } // > 1MB
 
-            // Simple CPU percentage (not perfect but good enough for display)
-            let cpuUsage = Double(info.pti_total_user + info.pti_total_system) / 10_000_000.0
+            let cpuUsage: Double
+            if elapsed > 0, let previousCPUTime = previousCPUTimesByPID[pid], totalCPUTime >= previousCPUTime {
+                let deltaCPUTime = totalCPUTime - previousCPUTime
+                let deltaSeconds = Double(deltaCPUTime) / 1_000_000_000.0 // proc_taskinfo time is ns
+                cpuUsage = min(max((deltaSeconds / elapsed) * 100.0, 0), maxCPUPercent)
+            } else {
+                cpuUsage = 0
+            }
 
             return ProcessDetails(
                 id: pid,
                 name: name.isEmpty ? "Unknown" : name,
-                cpuUsage: min(cpuUsage, 100.0),
+                cpuUsage: cpuUsage,
                 memoryUsage: memoryUsage,
                 state: .running
             )
         }
 
-        // Sort by memory usage and take top 20
-        let topProcesses = processes
-            .sorted { $0.memoryUsage > $1.memoryUsage }
-            .prefix(20)
-            .map { $0 }
+        // Keep a useful working set for both memory and CPU-oriented views.
+        let topByMemory = processes.sorted { $0.memoryUsage > $1.memoryUsage }.prefix(60)
+        let topByCPU = processes.sorted { $0.cpuUsage > $1.cpuUsage }.prefix(60)
+
+        var seen = Set<pid_t>()
+        var topProcesses: [ProcessDetails] = []
+        for process in Array(topByCPU) + Array(topByMemory) {
+            if seen.insert(process.id).inserted {
+                topProcesses.append(process)
+            }
+            if topProcesses.count >= 100 {
+                break
+            }
+        }
+
+        previousCPUTimesByPID = currentCPUTimesByPID
+        previousSampleTimestamp = sampleTime
 
         return ProcessMetrics(
-            timestamp: Date(),
+            timestamp: sampleTime,
             processes: topProcesses
         )
     }

@@ -58,7 +58,8 @@ class BatteryMonitor {
         let currentCapacity = info[kIOPSCurrentCapacityKey] as? Int ?? 0
         let _ = info[kIOPSMaxCapacityKey] as? Int ?? 100
         let isCharging = (info[kIOPSIsChargingKey] as? Bool) ?? false
-        let timeRemaining = info[kIOPSTimeToEmptyKey] as? Int ?? -1
+        let timeToEmpty = info[kIOPSTimeToEmptyKey] as? Int ?? -1
+        let timeToFull = info[kIOPSTimeToFullChargeKey] as? Int ?? -1
         let powerSource = (info[kIOPSPowerSourceStateKey] as? String) == kIOPSACPowerValue ? PowerSource.ac : PowerSource.battery
 
         // Try to get cycle count and health from IOKit
@@ -81,6 +82,8 @@ class BatteryMonitor {
 
         let chargePercent = Double(currentCapacity)
 
+        let timeEstimateMinutes = isCharging ? timeToFull : timeToEmpty
+
         return BatteryMetrics(
             timestamp: Date(),
             chargePercent: chargePercent,
@@ -88,7 +91,7 @@ class BatteryMonitor {
             health: health,
             cycleCount: cycleCount,
             temperature: smcReader?.getBatteryTemperature(),
-            timeRemaining: timeRemaining > 0 ? TimeInterval(timeRemaining * 60) : nil,
+            timeRemaining: timeEstimateMinutes > 0 ? TimeInterval(timeEstimateMinutes * 60) : nil,
             powerDraw: nil,
             powerSource: powerSource
         )

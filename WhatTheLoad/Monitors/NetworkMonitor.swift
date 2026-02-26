@@ -10,6 +10,8 @@ class NetworkMonitor {
     private var previousBytesIn: UInt64 = 0
     private var previousBytesOut: UInt64 = 0
     private var pathMonitor: NWPathMonitor?
+    private var cachedActiveConnections = 0
+    private var lastConnectionCountRefresh = Date.distantPast
 
     func start(interval: TimeInterval = 1.0) {
         timer?.invalidate()
@@ -115,7 +117,65 @@ class NetworkMonitor {
     }
 
     private func getActiveConnections() -> Int {
-        // Simplified placeholder
-        return Int.random(in: 10...50)
+        let now = Date()
+        if now.timeIntervalSince(lastConnectionCountRefresh) < 5 {
+            return cachedActiveConnections
+        }
+
+        lastConnectionCountRefresh = now
+        cachedActiveConnections = fetchActiveConnectionsViaNetstat() ?? cachedActiveConnections
+        return cachedActiveConnections
+    }
+
+    private func fetchActiveConnectionsViaNetstat() -> Int? {
+        let tcpOutput = runCommand("/usr/sbin/netstat", arguments: ["-an", "-p", "tcp"]) ?? ""
+        let udpOutput = runCommand("/usr/sbin/netstat", arguments: ["-an", "-p", "udp"]) ?? ""
+
+        guard !tcpOutput.isEmpty || !udpOutput.isEmpty else { return nil }
+
+        let tcpCount = tcpOutput
+            .split(whereSeparator: \.isNewline)
+            .filter { line in
+                let text = line.trimmingCharacters(in: .whitespaces)
+                guard text.hasPrefix("tcp") else { return false }
+
+                let cols = text.split(whereSeparator: \.isWhitespace)
+                guard let state = cols.last.map(String.init) else { return false }
+                return state != "LISTEN" && state != "CLOSED"
+            }
+            .count
+
+        let udpCount = udpOutput
+            .split(whereSeparator: \.isNewline)
+            .filter { line in
+                let text = line.trimmingCharacters(in: .whitespaces)
+                return text.hasPrefix("udp")
+            }
+            .count
+
+        return tcpCount + udpCount
+    }
+
+    private func runCommand(_ executable: String, arguments: [String]) -> String? {
+        let process = Process()
+        let pipe = Pipe()
+        let errorPipe = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.standardOutput = pipe
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }

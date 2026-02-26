@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import AppKit
 
 struct WiFiSectionView: View {
     let monitor: WiFiMonitor
@@ -27,8 +28,22 @@ struct WiFiSectionView: View {
                 }
             }
 
-            // Show not connected message if no WiFi
-            if monitor.current == nil || monitor.current?.ssid == nil {
+            if monitor.current == nil {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .scaleEffect(0.9)
+
+                    Text("Loading Wi-Fi diagnostics")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.wtlSecondary)
+
+                    Text("Waiting for the first Wi-Fi sample")
+                        .font(.system(size: 11))
+                        .foregroundColor(Color.wtlTertiary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(40)
+            } else if let current = monitor.current, !hasActiveWiFiConnection(current) {
                 VStack(spacing: 12) {
                     Image(systemName: "wifi.slash")
                         .font(.system(size: 48))
@@ -46,6 +61,58 @@ struct WiFiSectionView: View {
                 .frame(maxWidth: .infinity)
                 .padding(40)
             } else if let current = monitor.current {
+                if let ssid = current.ssid {
+                    StatRowView(label: "SSID", value: ssid)
+                } else {
+                    DiagnosticCardView(
+                        icon: "location",
+                        message: monitor.isLocationPermissionDenied
+                            ? "Connected to Wi-Fi, but SSID is hidden. Allow Location access in System Settings to show the network name."
+                            : "Connected to Wi-Fi. SSID is unavailable, but radio diagnostics are still shown.",
+                        type: .warning
+                    )
+
+                    HStack(spacing: 8) {
+                        if monitor.canRequestLocationPermission {
+                            Button("Request Access") {
+                                NSApp.activate(ignoringOtherApps: true)
+                                monitor.requestLocationPermission()
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.15))
+                            .foregroundColor(.blue)
+                            .cornerRadius(6)
+                        } else if monitor.isLocationPermissionDenied {
+                            Button("Open Location Settings") {
+                                openLocationPrivacySettings()
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.orange.opacity(0.15))
+                            .foregroundColor(.orange)
+                            .cornerRadius(6)
+                        }
+
+                        Button("Refresh") {
+                            monitor.refresh()
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.wtlCard)
+                        .foregroundColor(Color.wtlPrimary)
+                        .cornerRadius(6)
+
+                        Spacer()
+                    }
+                }
+
                 // Three metric cards in a row
                 HStack(spacing: 12) {
                     if let linkRate = current.linkRate {
@@ -107,6 +174,14 @@ struct WiFiSectionView: View {
                     if let loss = current.internetPacketLoss {
                         MetricCard(title: "LOSS", value: String(format: "%.1f%%", loss), color: colorForLoss(loss))
                     }
+                }
+
+                if let routerIP = current.routerIP {
+                    StatRowView(label: "Router", value: routerIP)
+                }
+
+                if let dnsServer = current.dnsServer {
+                    StatRowView(label: "DNS Server", value: dnsServer)
                 }
 
                 // DNS
@@ -215,6 +290,20 @@ struct WiFiSectionView: View {
         case -70..<(-50): return .orange
         default: return .red
         }
+    }
+
+    private func openLocationPrivacySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func hasActiveWiFiConnection(_ metrics: WiFiMetrics) -> Bool {
+        metrics.band != nil ||
+        (metrics.linkRate ?? 0) > 0 ||
+        metrics.signalStrength != nil ||
+        metrics.noiseFloor != nil
     }
 
     private func colorForNoise(_ dbm: Int) -> Color {

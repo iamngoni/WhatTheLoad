@@ -69,7 +69,7 @@ struct DashboardView: View {
             Divider()
 
             // Footer
-            Text("Updated just now")
+            Text(footerStatusText)
                 .font(.system(size: 9))
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity)
@@ -78,6 +78,36 @@ struct DashboardView: View {
         .frame(width: 360, height: 520)
         .background(Color.wtlBackground)
         .preferredColorScheme(.dark)
+    }
+
+    private var footerStatusText: String {
+        guard let latest = latestSampleTimestamp else {
+            return "Waiting for samples"
+        }
+
+        let age = max(0, Int(Date().timeIntervalSince(latest)))
+        if age < 2 { return "Updated just now" }
+        if age < 60 { return "Updated \(age)s ago" }
+
+        let minutes = age / 60
+        if minutes < 60 { return "Updated \(minutes)m ago" }
+
+        let hours = minutes / 60
+        return "Updated \(hours)h ago"
+    }
+
+    private var latestSampleTimestamp: Date? {
+        [
+            monitors.cpu.current?.timestamp,
+            monitors.memory.current?.timestamp,
+            monitors.network.current?.timestamp,
+            monitors.wifi.current?.timestamp,
+            monitors.disk.current?.timestamp,
+            monitors.processes.current?.timestamp,
+            monitors.battery.current?.timestamp
+        ]
+        .compactMap { $0 }
+        .max()
     }
 }
 
@@ -98,4 +128,3 @@ struct TabButton: View {
         .buttonStyle(.plain)
     }
 }
-

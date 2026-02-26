@@ -26,40 +26,88 @@ class MenuBarController {
     private func updateStatusItem() {
         guard let button = statusItem.button else { return }
 
-        // Get CPU history for sparkline
-        let cpuData = monitors.cpu.history.map { $0.totalUsage }
-        let currentCPU = monitors.cpu.current?.totalUsage ?? 0
-
-        // Render sparkline
-        let sparklineSize = NSSize(width: 50, height: 18)
-        let color = SparklineRenderer.colorForValue(currentCPU)
-        let sparklineImage = SparklineRenderer.render(data: cpuData, size: sparklineSize, color: color)
-
         // Get network speeds
         let upload = monitors.network.current?.uploadSpeed ?? 0
         let download = monitors.network.current?.downloadSpeed ?? 0
 
-        let uploadMBps = upload / 1_000_000
-        let downloadMBps = download / 1_000_000
-
-        // Create attributed string with sparkline + network text
+        // Create attributed string with network + battery text
         let attributedString = NSMutableAttributedString()
-
-        if let sparklineImage = sparklineImage {
-            let attachment = NSTextAttachment()
-            attachment.image = sparklineImage
-            attachment.bounds = CGRect(x: 0, y: -3, width: sparklineSize.width, height: sparklineSize.height)
-            attributedString.append(NSAttributedString(attachment: attachment))
-            attributedString.append(NSAttributedString(string: "  "))
-        }
-
-        let networkText = String(format: "↑%.1f ↓%.1f MB/s", uploadMBps, downloadMBps)
-        let networkAttributes: [NSAttributedString.Key: Any] = [
+        let baseAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
             .foregroundColor: NSColor.labelColor
         ]
-        attributedString.append(NSAttributedString(string: networkText, attributes: networkAttributes))
+
+        attributedString.append(NSAttributedString(string: "↓", attributes: baseAttributes))
+        attributedString.append(NSAttributedString(string: compactRate(download), attributes: baseAttributes))
+        attributedString.append(NSAttributedString(string: " ", attributes: baseAttributes))
+        attributedString.append(NSAttributedString(string: "↑", attributes: baseAttributes))
+        attributedString.append(NSAttributedString(string: compactRate(upload), attributes: baseAttributes))
+
+        if let battery = monitors.battery.current, let batteryTimeText = batteryTimeText(for: battery) {
+            attributedString.append(NSAttributedString(string: "  ", attributes: baseAttributes))
+
+            if let batteryIcon = batteryImage(for: battery) {
+                let attachment = NSTextAttachment()
+                attachment.image = batteryIcon
+                attachment.bounds = CGRect(x: 0, y: -2, width: 13, height: 13)
+                attributedString.append(NSAttributedString(attachment: attachment))
+                attributedString.append(NSAttributedString(string: " ", attributes: baseAttributes))
+            }
+
+            attributedString.append(NSAttributedString(string: batteryTimeText, attributes: baseAttributes))
+        }
 
         button.attributedTitle = attributedString
+    }
+
+    private func compactRate(_ bytesPerSecond: Double) -> String {
+        let units = ["B/s", "K/s", "M/s", "G/s"]
+        var value = max(bytesPerSecond, 0)
+        var unitIndex = 0
+
+        while value >= 1000, unitIndex < units.count - 1 {
+            value /= 1000
+            unitIndex += 1
+        }
+
+        let decimals: Int
+        switch value {
+        case 0..<10: decimals = 1
+        case 10..<100: decimals = 1
+        default: decimals = 0
+        }
+
+        return String(format: "%.\(decimals)f%@", value, units[unitIndex])
+    }
+
+    private func batteryTimeText(for battery: BatteryMetrics) -> String? {
+        guard let timeRemaining = battery.timeRemaining else { return nil }
+        return formatShortTime(timeRemaining)
+    }
+
+    private func formatShortTime(_ seconds: TimeInterval) -> String {
+        let totalMinutes = Int(seconds / 60)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return String(format: "%d:%02d", hours, minutes)
+    }
+
+    private func batteryImage(for battery: BatteryMetrics) -> NSImage? {
+        let symbolName: String
+
+        if battery.isCharging {
+            symbolName = "battery.100.bolt"
+        } else {
+            switch battery.chargePercent {
+            case 75...: symbolName = "battery.100"
+            case 50..<75: symbolName = "battery.75"
+            case 25..<50: symbolName = "battery.50"
+            default: symbolName = "battery.25"
+            }
+        }
+
+        let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
+        return NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(config)
     }
 }
