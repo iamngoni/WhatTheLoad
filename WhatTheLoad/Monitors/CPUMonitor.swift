@@ -7,11 +7,21 @@ class CPUMonitor {
 
     private var timer: Timer?
     private var previousInfo: host_cpu_load_info_data_t?
+    private var previousPerCoreTicks: [CPUTicks] = []
     private var smcReader: SMCReader?
+
+    private struct CPUTicks {
+        let user: UInt64
+        let system: UInt64
+        let idle: UInt64
+        let nice: UInt64
+    }
 
     func start(interval: TimeInterval = 1.0) {
         smcReader = SMCReader()
         timer?.invalidate()
+        previousInfo = nil
+        previousPerCoreTicks = []
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.update()
         }
@@ -46,20 +56,33 @@ class CPUMonitor {
 
         guard result == KERN_SUCCESS else { return nil }
 
-        let userTime = Double(cpuLoad.cpu_ticks.0)
-        let systemTime = Double(cpuLoad.cpu_ticks.1)
-        let idleTime = Double(cpuLoad.cpu_ticks.2)
-        let niceTime = Double(cpuLoad.cpu_ticks.3)
+        let userTime = UInt64(cpuLoad.cpu_ticks.0)
+        let systemTime = UInt64(cpuLoad.cpu_ticks.1)
+        let idleTime = UInt64(cpuLoad.cpu_ticks.2)
+        let niceTime = UInt64(cpuLoad.cpu_ticks.3)
+        let currentTicks = CPUTicks(user: userTime, system: systemTime, idle: idleTime, nice: niceTime)
+        let totalUsage: Double
 
-        let totalTime = userTime + systemTime + idleTime + niceTime
-        let usedTime = userTime + systemTime + niceTime
+        if let previousInfo {
+            let previousTicks = CPUTicks(
+                user: UInt64(previousInfo.cpu_ticks.0),
+                system: UInt64(previousInfo.cpu_ticks.1),
+                idle: UInt64(previousInfo.cpu_ticks.2),
+                nice: UInt64(previousInfo.cpu_ticks.3)
+            )
+            totalUsage = usagePercentage(from: previousTicks, to: currentTicks)
+        } else {
+            totalUsage = 0
+        }
+        previousInfo = cpuLoad
 
-        let totalUsage = totalTime > 0 ? (usedTime / totalTime) * 100.0 : 0.0
+        let perCoreUsage = fetchPerCoreUsage()
+        let resolvedTotalUsage = perCoreUsage.isEmpty ? totalUsage : (perCoreUsage.reduce(0, +) / Double(perCoreUsage.count))
 
         return CPUMetrics(
             timestamp: Date(),
-            totalUsage: min(max(totalUsage, 0), 100),
-            perCoreUsage: fetchPerCoreUsage(),
+            totalUsage: min(max(resolvedTotalUsage, 0), 100),
+            perCoreUsage: perCoreUsage,
             temperature: fetchTemperature(),
             frequency: fetchFrequency(),
             isThrottled: false
@@ -67,37 +90,70 @@ class CPUMonitor {
     }
 
     private func fetchPerCoreUsage() -> [Double] {
-        let coreCount = ProcessInfo.processInfo.activeProcessorCount
-        var usages: [Double] = []
+        var cpuInfo: processor_info_array_t?
+        var cpuInfoCount: mach_msg_type_number_t = 0
+        var cpuCount: natural_t = 0
 
-        for core in 0..<coreCount {
-            var cpuLoad = processor_cpu_load_info()
-            var count = mach_msg_type_number_t(MemoryLayout<processor_cpu_load_info>.stride / MemoryLayout<natural_t>.stride)
+        let result = host_processor_info(
+            mach_host_self(),
+            PROCESSOR_CPU_LOAD_INFO,
+            &cpuCount,
+            &cpuInfo,
+            &cpuInfoCount
+        )
 
-            var host = mach_host_self()
-            let result = withUnsafeMutablePointer(to: &cpuLoad) {
-                $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { pointer in
-                    processor_info(processor_t(core), PROCESSOR_CPU_LOAD_INFO, &host, pointer, &count)
-                }
-            }
-
-            if result == KERN_SUCCESS {
-                let user = Double(cpuLoad.cpu_ticks.0)
-                let system = Double(cpuLoad.cpu_ticks.1)
-                let idle = Double(cpuLoad.cpu_ticks.2)
-                let nice = Double(cpuLoad.cpu_ticks.3)
-
-                let total = user + system + idle + nice
-                let used = user + system + nice
-
-                let usage = total > 0 ? (used / total) * 100.0 : 0.0
-                usages.append(min(max(usage, 0), 100))
-            } else {
-                usages.append(0)
-            }
+        guard result == KERN_SUCCESS, let cpuInfo else {
+            return previousPerCoreTicks.map { _ in 0 }
         }
 
+        let cpuStateCount = Int(CPU_STATE_MAX)
+        var currentPerCoreTicks: [CPUTicks] = []
+        currentPerCoreTicks.reserveCapacity(Int(cpuCount))
+
+        for core in 0..<Int(cpuCount) {
+            let base = core * cpuStateCount
+            let user = UInt64(cpuInfo[base + Int(CPU_STATE_USER)])
+            let system = UInt64(cpuInfo[base + Int(CPU_STATE_SYSTEM)])
+            let idle = UInt64(cpuInfo[base + Int(CPU_STATE_IDLE)])
+            let nice = UInt64(cpuInfo[base + Int(CPU_STATE_NICE)])
+            currentPerCoreTicks.append(CPUTicks(user: user, system: system, idle: idle, nice: nice))
+        }
+
+        let deallocateSize = vm_size_t(Int(cpuInfoCount) * MemoryLayout<integer_t>.stride)
+        vm_deallocate(mach_task_self_, vm_address_t(bitPattern: cpuInfo), deallocateSize)
+
+        guard previousPerCoreTicks.count == currentPerCoreTicks.count else {
+            previousPerCoreTicks = currentPerCoreTicks
+            return currentPerCoreTicks.map { _ in 0 }
+        }
+
+        let usages = zip(previousPerCoreTicks, currentPerCoreTicks).map { previousTicks, currentTicks in
+            usagePercentage(from: previousTicks, to: currentTicks)
+        }
+        previousPerCoreTicks = currentPerCoreTicks
         return usages
+    }
+
+    private func usagePercentage(from previous: CPUTicks, to current: CPUTicks) -> Double {
+        let userDelta = safeDelta(current.user, previous.user)
+        let systemDelta = safeDelta(current.system, previous.system)
+        let idleDelta = safeDelta(current.idle, previous.idle)
+        let niceDelta = safeDelta(current.nice, previous.nice)
+
+        let totalDelta = userDelta + systemDelta + idleDelta + niceDelta
+        guard totalDelta > 0 else { return 0 }
+
+        let usedDelta = userDelta + systemDelta + niceDelta
+        return (Double(usedDelta) / Double(totalDelta)) * 100.0
+    }
+
+    private func safeDelta(_ current: UInt64, _ previous: UInt64) -> UInt64 {
+        if current >= previous {
+            return current - previous
+        }
+
+        // CPU counters can reset across wake/sleep and some topology changes.
+        return current
     }
 
     private func fetchTemperature() -> Double? {

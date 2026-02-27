@@ -87,7 +87,7 @@ struct CPUSectionView: View {
 
                 ForEach(Array(current.perCoreUsage.enumerated()), id: \.offset) { index, usage in
                     HStack(spacing: 8) {
-                        Text("Core \(index)")
+                        Text("Core \(index + 1)")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundColor(Color.wtlTertiary)
                             .frame(width: 50, alignment: .leading)
@@ -99,15 +99,15 @@ struct CPUSectionView: View {
 
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(colorForCPU(usage))
-                                    .frame(width: geometry.size.width * (usage / 100))
+                                    .frame(width: usage <= 0 ? 0 : max(1, geometry.size.width * (usage / 100)))
                             }
                         }
                         .frame(height: 8)
 
-                        Text(String(format: "%.0f%%", usage))
+                        Text(String(format: "%.1f%%", usage))
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                             .foregroundColor(Color.wtlSecondary)
-                            .frame(width: 35, alignment: .trailing)
+                            .frame(width: 45, alignment: .trailing)
                     }
                 }
             }
