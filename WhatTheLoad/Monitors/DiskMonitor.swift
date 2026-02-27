@@ -1,6 +1,7 @@
 import Foundation
 import IOKit
 import IOKit.storage
+import AppKit
 
 @Observable
 class DiskMonitor {
@@ -8,6 +9,7 @@ class DiskMonitor {
     var history: [DiskMetrics] = []
 
     var cacheFolderSize: UInt64 = 0
+    var cleanupCategories: [DiskCleanupCategoryStatus] = []
     var largestConsumers: [DiskSpaceConsumer] = []
     var largestCacheEntries: [DiskSpaceConsumer] = []
     var isAnalyzingSpace = false
@@ -19,9 +21,11 @@ class DiskMonitor {
     private var previousReadBytes: UInt64 = 0
     private var previousWriteBytes: UInt64 = 0
     private var previousIOSampleTime: Date?
+    private let historyStore = HistoryStore.shared
 
     private struct SpaceAnalysisResult {
         let cacheFolderSize: UInt64
+        let cleanupCategories: [DiskCleanupCategoryStatus]
         let largestConsumers: [DiskSpaceConsumer]
         let largestCacheEntries: [DiskSpaceConsumer]
     }
@@ -53,6 +57,7 @@ class DiskMonitor {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.cacheFolderSize = analysis.cacheFolderSize
+                self.cleanupCategories = analysis.cleanupCategories
                 self.largestConsumers = analysis.largestConsumers
                 self.largestCacheEntries = analysis.largestCacheEntries
                 self.lastSpaceAnalysisAt = Date()
@@ -62,62 +67,28 @@ class DiskMonitor {
     }
 
     func clearLibraryCaches() {
+        cleanCategory(.caches)
+    }
+
+    func cleanCategory(_ category: DiskCleanupCategoryKey) {
         guard !isCleaningUpSpace else { return }
+        let homeURL = FileManager.default.homeDirectoryForCurrentUser
+        let targets = categoryPaths(for: category, homeURL: homeURL)
+        cleanPaths(targets, title: category.title, category: category)
+    }
 
-        isCleaningUpSpace = true
-        cleanupStatus = nil
+    func revealCategory(_ category: DiskCleanupCategoryKey) {
+        let homeURL = FileManager.default.homeDirectoryForCurrentUser
+        let targets = categoryPaths(for: category, homeURL: homeURL)
 
-        let cachesURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches", isDirectory: true)
-        let estimatedRemovedSize = cacheFolderSize > 0 ? cacheFolderSize : sizeOfItem(at: cachesURL)
-
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self else { return }
-
-            let fileManager = FileManager.default
-            var isDirectory: ObjCBool = false
-            guard fileManager.fileExists(atPath: cachesURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
-                    self.cleanupStatus = "No Library/Caches folder found."
-                    self.isCleaningUpSpace = false
-                }
-                return
-            }
-
-            var removedItems = 0
-            var failedItems = 0
-
-            do {
-                let items = try fileManager.contentsOfDirectory(at: cachesURL, includingPropertiesForKeys: nil, options: [])
-                for item in items {
-                    do {
-                        try fileManager.removeItem(at: item)
-                        removedItems += 1
-                    } catch {
-                        failedItems += 1
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
-                    self.cleanupStatus = "Failed to clear Library/Caches: \(error.localizedDescription)"
-                    self.isCleaningUpSpace = false
-                }
-                return
-            }
-
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                let freedText = self.formatBytes(estimatedRemovedSize)
-                if failedItems == 0 {
-                    self.cleanupStatus = "Cleared Library/Caches (\(freedText), \(removedItems) items)."
-                } else {
-                    self.cleanupStatus = "Cleared Library/Caches (\(freedText), \(removedItems) items, \(failedItems) failed)."
-                }
-                self.isCleaningUpSpace = false
-                self.refreshSpaceAnalysis()
-            }
+        guard let firstExisting = targets.first(where: {
+            FileManager.default.fileExists(atPath: URL(fileURLWithPath: $0).path)
+        }) else {
+            cleanupStatus = "No path found for \(category.title)."
+            return
         }
+
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: firstExisting)])
     }
 
     func moveItemToTrash(_ consumer: DiskSpaceConsumer) {
@@ -142,6 +113,12 @@ class DiskMonitor {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.cleanupStatus = "Moved \(consumer.name) to Trash (\(self.formatBytes(consumer.size)))."
+                    self.historyStore.recordEvent(TimelineEvent(
+                        severity: .info,
+                        category: .disk,
+                        title: "Item Moved to Trash",
+                        message: "\(consumer.name) (\(self.formatBytes(consumer.size)))."
+                    ))
                     self.isCleaningUpSpace = false
                     self.refreshSpaceAnalysis()
                 }
@@ -151,6 +128,84 @@ class DiskMonitor {
                     self.cleanupStatus = "Failed to move \(consumer.name) to Trash: \(error.localizedDescription)"
                     self.isCleaningUpSpace = false
                 }
+            }
+        }
+    }
+
+    private func cleanPaths(_ paths: [String], title: String, category: DiskCleanupCategoryKey) {
+        guard !paths.isEmpty else {
+            cleanupStatus = "No paths found for \(title)."
+            return
+        }
+
+        let homePath = FileManager.default.homeDirectoryForCurrentUser.path
+        let safePaths = paths.filter { $0.hasPrefix(homePath + "/") }
+        guard !safePaths.isEmpty else {
+            cleanupStatus = "Cleanup is limited to paths in your home directory."
+            return
+        }
+
+        isCleaningUpSpace = true
+        cleanupStatus = nil
+
+        let estimatedRemovedSize = safePaths.reduce(UInt64(0)) { partial, path in
+            partial + sizeOfItem(at: URL(fileURLWithPath: path))
+        }
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            let fileManager = FileManager.default
+
+            var removedItems = 0
+            var failedItems = 0
+
+            for path in safePaths {
+                let url = URL(fileURLWithPath: path)
+                var isDirectory: ObjCBool = false
+                guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
+
+                if isDirectory.boolValue {
+                    do {
+                        let children = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [])
+                        for child in children {
+                            do {
+                                try fileManager.removeItem(at: child)
+                                removedItems += 1
+                            } catch {
+                                failedItems += 1
+                            }
+                        }
+                    } catch {
+                        failedItems += 1
+                    }
+                } else {
+                    do {
+                        try fileManager.removeItem(at: url)
+                        removedItems += 1
+                    } catch {
+                        failedItems += 1
+                    }
+                }
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                let freedText = self.formatBytes(estimatedRemovedSize)
+                if failedItems == 0 {
+                    self.cleanupStatus = "Cleaned \(title) (\(freedText), \(removedItems) items)."
+                } else {
+                    self.cleanupStatus = "Cleaned \(title) (\(freedText), \(removedItems) items, \(failedItems) failed)."
+                }
+
+                self.historyStore.recordEvent(TimelineEvent(
+                    severity: failedItems == 0 ? .info : .warning,
+                    category: .disk,
+                    title: "Cleanup: \(category.title)",
+                    message: self.cleanupStatus ?? "Cleanup completed."
+                ))
+
+                self.isCleaningUpSpace = false
+                self.refreshSpaceAnalysis()
             }
         }
     }
@@ -266,12 +321,46 @@ class DiskMonitor {
         let topConsumers = Array(consumers.prefix(8))
 
         let cacheEntries = largestChildren(in: cacheURL, maxCount: 6)
+        let cleanupCategories = buildCleanupCategories(homeURL: homeURL)
 
         return SpaceAnalysisResult(
             cacheFolderSize: cacheSize,
+            cleanupCategories: cleanupCategories,
             largestConsumers: topConsumers,
             largestCacheEntries: cacheEntries
         )
+    }
+
+    private func buildCleanupCategories(homeURL: URL) -> [DiskCleanupCategoryStatus] {
+        DiskCleanupCategoryKey.allCases.map { key in
+            let paths = categoryPaths(for: key, homeURL: homeURL).filter {
+                FileManager.default.fileExists(atPath: $0)
+            }
+            let size = paths.reduce(UInt64(0)) { partial, path in
+                partial + sizeOfItem(at: URL(fileURLWithPath: path))
+            }
+            return DiskCleanupCategoryStatus(key: key, paths: paths, size: size)
+        }
+    }
+
+    private func categoryPaths(for category: DiskCleanupCategoryKey, homeURL: URL) -> [String] {
+        switch category {
+        case .caches:
+            return [homeURL.appendingPathComponent("Library/Caches", isDirectory: true).path]
+        case .logs:
+            return [homeURL.appendingPathComponent("Library/Logs", isDirectory: true).path]
+        case .derivedData:
+            return [homeURL.appendingPathComponent("Library/Developer/Xcode/DerivedData", isDirectory: true).path]
+        case .browserCaches:
+            return [
+                homeURL.appendingPathComponent("Library/Caches/com.apple.Safari", isDirectory: true).path,
+                homeURL.appendingPathComponent("Library/Caches/Google/Chrome", isDirectory: true).path,
+                homeURL.appendingPathComponent("Library/Caches/Firefox", isDirectory: true).path,
+                homeURL.appendingPathComponent("Library/Caches/Microsoft Edge", isDirectory: true).path,
+                homeURL.appendingPathComponent("Library/Caches/com.brave.Browser", isDirectory: true).path,
+                homeURL.appendingPathComponent("Library/Application Support/Firefox/Profiles", isDirectory: true).path
+            ]
+        }
     }
 
     private func largestChildren(in directoryURL: URL, maxCount: Int) -> [DiskSpaceConsumer] {

@@ -62,8 +62,8 @@ class NetworkMonitor {
 
                 if name.starts(with: "en"), let data = interface.ifa_data {
                     let networkData = data.assumingMemoryBound(to: if_data.self).pointee
-                    bytesIn += UInt64(networkData.ifi_ibytes)
-                    bytesOut += UInt64(networkData.ifi_obytes)
+                    bytesIn = saturatingAdd(bytesIn, UInt64(networkData.ifi_ibytes))
+                    bytesOut = saturatingAdd(bytesOut, UInt64(networkData.ifi_obytes))
                     interfaceName = name
                 }
             }
@@ -107,6 +107,11 @@ class NetworkMonitor {
         // Interface counters can reset across reconnects or interface swaps.
         // Treat as a restart to avoid overflow and unrealistic spikes.
         return current
+    }
+
+    private func saturatingAdd(_ lhs: UInt64, _ rhs: UInt64) -> UInt64 {
+        let (value, overflowed) = lhs.addingReportingOverflow(rhs)
+        return overflowed ? UInt64.max : value
     }
 
     private func getifaddrs_wrapper() -> UnsafeMutablePointer<ifaddrs>? {

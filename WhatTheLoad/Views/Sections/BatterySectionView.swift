@@ -2,6 +2,8 @@ import SwiftUI
 
 struct BatterySectionView: View {
     let monitor: BatteryMonitor
+    let monitors: MonitorCoordinator
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -9,6 +11,14 @@ struct BatterySectionView: View {
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundColor(Color.wtlSecondary)
                 .tracking(0.5)
+
+            if settings.powerSaveModeActive {
+                DiagnosticCardView(
+                    icon: "battery.25",
+                    message: "Power Save Mode is active. Polling intervals are reduced while battery is low.",
+                    type: .warning
+                )
+            }
 
             if let current = monitor.current {
                 HStack(spacing: 20) {
@@ -62,6 +72,12 @@ struct BatterySectionView: View {
                         value: String(format: "%.1fW", power)
                     )
                 }
+
+                StatRowView(
+                    label: "Power Save",
+                    value: monitors.isPowerSaveMode ? "Active" : "Inactive",
+                    valueColor: monitors.isPowerSaveMode ? .orange : .secondary
+                )
             } else {
                 Text("No battery detected")
                     .font(.system(size: 12))

@@ -18,8 +18,25 @@ class AppSettings: ObservableObject {
     @AppStorage("menuBarSparklineMetric") var menuBarSparklineMetric: String = "cpu"
 
     @AppStorage("launchAtLogin") var launchAtLogin: Bool = false
+
+    @AppStorage("alertsEnabled") var alertsEnabled: Bool = true
+    @AppStorage("alertsCooldownMinutes") var alertsCooldownMinutes: Double = 10.0
+    @AppStorage("alertsQuietHoursEnabled") var alertsQuietHoursEnabled: Bool = false
+    @AppStorage("alertsQuietHoursStartHour") var alertsQuietHoursStartHour: Double = 22.0
+    @AppStorage("alertsQuietHoursEndHour") var alertsQuietHoursEndHour: Double = 7.0
+    @AppStorage("cpuUsageAlertThreshold") var cpuUsageAlertThreshold: Double = 90.0
+    @AppStorage("cpuTempAlertThreshold") var cpuTempAlertThreshold: Double = 90.0
+    @AppStorage("packetLossAlertThreshold") var packetLossAlertThreshold: Double = 3.0
+    @AppStorage("jitterAlertThreshold") var jitterAlertThreshold: Double = 30.0
+    @AppStorage("lowDiskFreePercentThreshold") var lowDiskFreePercentThreshold: Double = 10.0
+
     @AppStorage("lowBatteryAlertsEnabled") var lowBatteryAlertsEnabled: Bool = true
     @AppStorage("lowBatteryAlertThreshold") var lowBatteryAlertThreshold: Double = 20.0
+    @AppStorage("batteryAutomationEnabled") var batteryAutomationEnabled: Bool = true
+    @AppStorage("batteryAutomationThreshold") var batteryAutomationThreshold: Double = 20.0
+    @AppStorage("batteryAutomationAutoOpenSettings") var batteryAutomationAutoOpenSettings: Bool = false
+    @AppStorage("powerSaveModeActive") var powerSaveModeActive: Bool = false
+    @AppStorage("lastDiagnosticsExportStatus") var lastDiagnosticsExportStatus: String = ""
 
     func resetToDefaults() {
         cpuPollInterval = 1.0
@@ -35,7 +52,22 @@ class AppSettings: ObservableObject {
         menuBarSparklineMetric = "cpu"
 
         launchAtLogin = false
+        alertsEnabled = true
+        alertsCooldownMinutes = 10.0
+        alertsQuietHoursEnabled = false
+        alertsQuietHoursStartHour = 22.0
+        alertsQuietHoursEndHour = 7.0
+        cpuUsageAlertThreshold = 90.0
+        cpuTempAlertThreshold = 90.0
+        packetLossAlertThreshold = 3.0
+        jitterAlertThreshold = 30.0
+        lowDiskFreePercentThreshold = 10.0
         lowBatteryAlertsEnabled = true
         lowBatteryAlertThreshold = 20.0
+        batteryAutomationEnabled = true
+        batteryAutomationThreshold = 20.0
+        batteryAutomationAutoOpenSettings = false
+        powerSaveModeActive = false
+        lastDiagnosticsExportStatus = ""
     }
 }

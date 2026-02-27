@@ -168,6 +168,23 @@ struct DiskSectionView: View {
                 }
             }
 
+            if !monitor.cleanupCategories.isEmpty {
+                Text("CLEANUP CATEGORIES")
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundColor(Color.wtlTertiary)
+                    .tracking(0.5)
+                    .padding(.top, 4)
+
+                ForEach(monitor.cleanupCategories) { category in
+                    cleanupCategoryRow(category)
+                }
+
+                Text("Only paths inside your home directory are cleaned. Protected system paths are excluded.")
+                    .font(.system(size: 9))
+                    .foregroundColor(Color.wtlTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let cleanupStatus = monitor.cleanupStatus, !cleanupStatus.isEmpty {
                 Text(cleanupStatus)
                     .font(.system(size: 9, design: .monospaced))
@@ -242,6 +259,34 @@ struct DiskSectionView: View {
             .buttonStyle(.plain)
             .foregroundColor(.red)
             .disabled(monitor.isCleaningUpSpace)
+        }
+    }
+
+    private func cleanupCategoryRow(_ category: DiskCleanupCategoryStatus) -> some View {
+        HStack(spacing: 8) {
+            Text(category.title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.primary)
+
+            Spacer(minLength: 8)
+
+            Text(formatBytes(category.size))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(Color.wtlSecondary)
+
+            Button("Reveal") {
+                monitor.revealCategory(category.key)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .disabled(category.paths.isEmpty)
+
+            Button("Clean", role: .destructive) {
+                monitor.cleanCategory(category.key)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .disabled(category.paths.isEmpty || monitor.isCleaningUpSpace)
         }
     }
 

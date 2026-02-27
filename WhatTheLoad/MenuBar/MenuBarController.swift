@@ -34,7 +34,7 @@ class MenuBarController {
         let attributedString = NSMutableAttributedString()
         let baseAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
-            .foregroundColor: NSColor.labelColor
+            .foregroundColor: NSColor.white
         ]
 
         attributedString.append(NSAttributedString(string: "↓", attributes: baseAttributes))
@@ -81,8 +81,15 @@ class MenuBarController {
     }
 
     private func batteryTimeText(for battery: BatteryMetrics) -> String? {
-        guard let timeRemaining = battery.timeRemaining else { return nil }
-        return formatShortTime(timeRemaining)
+        if let timeRemaining = battery.timeRemaining {
+            return formatShortTime(timeRemaining)
+        }
+
+        if battery.powerSource == .ac {
+            return battery.chargePercent >= 99 ? "Full" : "AC"
+        }
+
+        return nil
     }
 
     private func formatShortTime(_ seconds: TimeInterval) -> String {
@@ -107,7 +114,9 @@ class MenuBarController {
         }
 
         let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
-        return NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(config)
+        image?.isTemplate = true
+        return image
     }
 }

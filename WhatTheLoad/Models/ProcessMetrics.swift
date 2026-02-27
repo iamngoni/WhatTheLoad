@@ -8,6 +8,7 @@ struct ProcessMetrics {
 struct ProcessDetails: Identifiable {
     let id: Int32 // PID
     let name: String
+    let executablePath: String
     let cpuUsage: Double
     let memoryUsage: UInt64
     let state: ProcessState

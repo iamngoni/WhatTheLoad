@@ -79,6 +79,7 @@ class ProcessMonitor {
             return ProcessDetails(
                 id: pid,
                 name: name.isEmpty ? "Unknown" : name,
+                executablePath: path,
                 cpuUsage: cpuUsage,
                 memoryUsage: memoryUsage,
                 state: .running

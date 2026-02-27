@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     let monitors: MonitorCoordinator
+    let historyStore: HistoryStore
     @State private var selectedTab = 0
     @State private var showingSettings = false
 
@@ -25,7 +26,7 @@ struct DashboardView: View {
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showingSettings) {
-                    SettingsView()
+                    SettingsView(monitors: monitors, historyStore: historyStore)
                 }
             }
             .padding(.horizontal, 16)
@@ -41,7 +42,8 @@ struct DashboardView: View {
                 TabButton(icon: "wifi", isSelected: selectedTab == 3) { selectedTab = 3 }
                 TabButton(icon: "internaldrive", isSelected: selectedTab == 4) { selectedTab = 4 }
                 TabButton(icon: "list.bullet", isSelected: selectedTab == 5) { selectedTab = 5 }
-                TabButton(icon: "battery.100", isSelected: selectedTab == 6) { selectedTab = 6 }
+                TabButton(icon: "clock.badge.exclamationmark", isSelected: selectedTab == 6) { selectedTab = 6 }
+                TabButton(icon: "battery.100", isSelected: selectedTab == 7) { selectedTab = 7 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -54,11 +56,12 @@ struct DashboardView: View {
                     switch selectedTab {
                     case 0: CPUSectionView(monitor: monitors.cpu)
                     case 1: MemorySectionView(monitor: monitors.memory, processMonitor: monitors.processes)
-                    case 2: NetworkSectionView(monitor: monitors.network)
+                    case 2: NetworkSectionView(monitor: monitors.network, wifiMonitor: monitors.wifi)
                     case 3: WiFiSectionView(monitor: monitors.wifi)
                     case 4: DiskSectionView(monitor: monitors.disk)
                     case 5: ProcessesSectionView(monitor: monitors.processes)
-                    case 6: BatterySectionView(monitor: monitors.battery)
+                    case 6: TimelineSectionView(historyStore: historyStore)
+                    case 7: BatterySectionView(monitor: monitors.battery, monitors: monitors)
                     default: EmptyView()
                     }
                 }

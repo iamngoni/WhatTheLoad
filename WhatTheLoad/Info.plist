@@ -14,6 +14,8 @@
     <string>1.0</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026. All rights reserved.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>WhatTheLoad needs location access to display your Wi-Fi network name (SSID) and diagnostics.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>WhatTheLoad needs location access to display your Wi-Fi network name (SSID) and diagnostics.</string>
     <key>NSLocationUsageDescription</key>

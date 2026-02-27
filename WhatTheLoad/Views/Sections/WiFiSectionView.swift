@@ -61,6 +61,14 @@ struct WiFiSectionView: View {
                 .frame(maxWidth: .infinity)
                 .padding(40)
             } else if let current = monitor.current {
+                if let incident = current.incident {
+                    DiagnosticCardView(
+                        icon: "wifi.exclamationmark",
+                        message: "\(incident.title): \(incident.hint)",
+                        type: incidentType(for: incident)
+                    )
+                }
+
                 if let ssid = current.ssid {
                     StatRowView(label: "SSID", value: ssid)
                 } else {
@@ -337,6 +345,15 @@ struct WiFiSectionView: View {
         case 0..<1: return .green
         case 1..<5: return .orange
         default: return .red
+        }
+    }
+
+    private func incidentType(for incident: NetworkIncident) -> DiagnosticCardView.DiagnosticType {
+        switch incident.type {
+        case .unstableLink:
+            return .warning
+        case .gatewayUnreachable, .internetOutage, .dnsFailure:
+            return .error
         }
     }
 

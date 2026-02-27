@@ -16,6 +16,7 @@ struct WiFiMetrics {
     let internetPacketLoss: Double?
     let dnsLookupTime: Double?
     let dnsServer: String?
+    let incident: NetworkIncident?
 }
 
 enum WiFiBand {

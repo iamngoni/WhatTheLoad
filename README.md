@@ -1,121 +1,96 @@
 # WhatTheLoad
 
-WhatTheLoad is a macOS menu bar utility that surfaces the system metrics you usually have to dig around for: CPU, memory, network throughput, Wi-Fi quality, disk usage, processes, and battery health.
+WhatTheLoad is a macOS menu bar diagnostics app focused on fast, practical system visibility.
 
-The goal is fast diagnostics from the menu bar, with a compact popover for deeper context.
+It shows live network throughput in the menu bar and provides a compact popover with deep system tabs for CPU, memory, network, Wi-Fi, disk, processes, timeline history, and battery.
 
-## What It Shows
+## Highlights
 
-### Menu Bar (Always Visible)
+- Live menu bar telemetry:
+  - Download/upload speed (`↓` / `↑`)
+  - Battery time remaining or charging state (no battery percentage noise)
+- Multi-tab diagnostics dashboard:
+  - CPU, Memory, Network, Wi-Fi, Disk, Processes, Timeline, Battery
+- Smart alert engine:
+  - CPU usage, CPU temp, memory pressure, packet loss, jitter, low disk, low battery
+  - Cooldown + quiet hours
+  - Blocking popups for critical events
+- Timeline + history:
+  - Persisted events and periodic metric snapshots
+  - 24h / 7d view with trend sparklines
+- Network incident detection:
+  - Gateway unreachable
+  - Internet outage
+  - DNS failure
+  - Unstable link
+- Disk cleanup tools:
+  - Category cleanup with size estimates: Caches, Logs, DerivedData, Browser Caches
+  - Finder reveal and trash actions
+- Process drilldown:
+  - Select process for details, CPU/memory trends, executable path, open file/socket counts
+  - Guarded Quit / Force Quit actions
+- Battery automation:
+  - Auto-enable low-power polling profile on low battery
+  - Optional auto-open Battery settings
+- Diagnostics bundle export:
+  - `snapshot.json`, `timeline_events.json`, `metric_snapshots.json`, `process_top.json`, `network_diagnostics.json`
 
-- Live download/upload throughput (`↓` / `↑`)
-- Battery remaining time (or charging ETA when macOS provides it)
-- One-click access to the full popover dashboard
+## Permissions
 
-### Popover Dashboard Tabs
+### Wi-Fi SSID access
 
-1. `CPU`
-   - Total CPU usage
-   - Per-core usage bars
-   - CPU temperature (when available)
-   - Frequency and throttle status fields
+macOS can hide SSID unless location permission is granted.
 
-2. `Memory`
-   - Used / wired / compressed / free breakdown
-   - Memory pressure summary
-   - Swap activity summary
-   - Top memory consumers
+WhatTheLoad supports this flow directly in the Wi-Fi tab:
 
-3. `Network`
-   - Upload/download sparklines
-   - Interface name and local IP
-   - Connection count field
+- `Request Access`
+- `Open Location Settings` fallback when macOS does not show the prompt
 
-4. `Wi-Fi`
-   - Link rate, RSSI, noise floor
-   - Router and internet ping/jitter/loss
-   - DNS lookup timing
-   - Band detection (`2.4 GHz`, `5 GHz`, `6 GHz`)
-   - Wi-Fi speed test (manual)
-   - SSID permission guidance + quick actions (request/open settings)
+Required `Info.plist` keys are included for location usage descriptions.
 
-5. `Disk`
-   - Mounted volumes
-   - Capacity usage and free space
-   - Read/write activity charts
+## Build
 
-6. `Processes`
-   - Searchable process list
-   - CPU / memory columns
-   - Context menu to terminate a process
-
-7. `Battery`
-   - Charge state and percentage
-   - Time remaining / time to full
-   - Health and cycle count
-   - Temperature (when available)
-
-## Permissions (Important)
-
-### Wi-Fi Name / SSID
-
-macOS may return Wi-Fi radio details (band/channel) while hiding the SSID unless Location access is granted.
-
-WhatTheLoad now handles this explicitly:
-
-- It still shows Wi-Fi diagnostics when SSID is unavailable
-- It shows a warning card explaining why
-- It includes:
-  - `Request Access` (if permission has not been decided yet)
-  - `Open Location Settings` (if access was denied)
-
-If you see `SSID` as unavailable but the Wi-Fi tab shows a band badge (for example `5 GHz`), you are connected; macOS is just withholding the network name.
-
-## Installation
-
-### Build from Source
+### Debug
 
 ```bash
-git clone <your-repo-url>
-cd WhatTheLoad
-open WhatTheLoad.xcodeproj
+xcodebuild -project WhatTheLoad.xcodeproj -scheme WhatTheLoad -configuration Debug build
 ```
 
-Then build/run in Xcode (`WhatTheLoad` scheme, macOS target).
+### Release
 
-## Requirements
+```bash
+xcodebuild -project WhatTheLoad.xcodeproj -scheme WhatTheLoad -configuration Release build
+```
 
-- macOS (modern version with SwiftUI menu bar support)
-- Xcode with a recent Swift toolchain
+Built app path:
 
-## Architecture Notes
+```bash
+~/Library/Developer/Xcode/DerivedData/WhatTheLoad-*/Build/Products/Release/WhatTheLoad.app
+```
 
-- SwiftUI UI with `@Observable` monitors
-- Polling-based metrics collection with rolling history buffers
-- Uses macOS APIs including:
-  - `mach`
-  - `IOKit`
-  - `CoreWLAN`
-  - `Network`
-  - `CoreLocation` (for Wi-Fi SSID access)
+## Install to Applications
 
-## Current State / Known Gaps
+```bash
+pkill -x WhatTheLoad || true
+cp -R ~/Library/Developer/Xcode/DerivedData/WhatTheLoad-*/Build/Products/Release/WhatTheLoad.app /Applications/
+open /Applications/WhatTheLoad.app
+```
 
-This project is actively being improved. Some metrics are already strong and useful (especially live throughput, Wi-Fi radio diagnostics, and battery health), while some values are still simplified/approximate placeholders and should be treated as directional until replaced with fully native collectors.
+## Diagnostics Export Contents
 
-Planned improvements include:
+- `snapshot.json`: current monitor state
+- `timeline_events.json`: recent timeline events
+- `metric_snapshots.json`: periodic snapshots
+- `process_top.json`: top processes at export time
+- `network_diagnostics.json`: route/DNS/incident diagnostics
+- `README.txt`: export timestamp and file guide
 
-- Battery power draw (watts) on supported hardware
-- Alerting thresholds for common problems
-- Optional menu bar display modes (network-only / CPU+memory / rotating)
-- Exportable diagnostic snapshots
+## Tech Notes
 
-## Privacy
-
-WhatTheLoad runs locally on your Mac. Metrics are collected on-device and are not uploaded anywhere by the app.
-
-The optional speed test feature performs network requests to measure throughput.
+- SwiftUI + Observation (`@Observable` monitors)
+- Main monitor coordinator with adaptive polling profile
+- Uses macOS APIs: `mach`, `IOKit`, `CoreWLAN`, `Network`, `CoreLocation`, `SystemConfiguration`
 
 ## License
 
-MIT — see `LICENSE`.
+MIT (`LICENSE`)

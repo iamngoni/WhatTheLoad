@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NetworkSectionView: View {
     let monitor: NetworkMonitor
+    let wifiMonitor: WiFiMonitor
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -9,6 +10,14 @@ struct NetworkSectionView: View {
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundColor(Color.wtlSecondary)
                 .tracking(0.5)
+
+            if let incident = wifiMonitor.current?.incident {
+                DiagnosticCardView(
+                    icon: "wifi.exclamationmark",
+                    message: "\(incident.title): \(incident.hint)",
+                    type: incidentType(incident)
+                )
+            }
 
             // Upload speed
             VStack(alignment: .leading, spacing: 8) {
@@ -59,5 +68,14 @@ struct NetworkSectionView: View {
     private func formatSpeed(_ bytesPerSecond: Double) -> String {
         let mbps = bytesPerSecond / 1_000_000
         return String(format: "%.1f MB/s", mbps)
+    }
+
+    private func incidentType(_ incident: NetworkIncident) -> DiagnosticCardView.DiagnosticType {
+        switch incident.type {
+        case .unstableLink:
+            return .warning
+        case .gatewayUnreachable, .internetOutage, .dnsFailure:
+            return .error
+        }
     }
 }

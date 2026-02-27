@@ -47,7 +47,7 @@ final class WiFiMonitor {
 
             NSApp.activate(ignoringOtherApps: true)
             print("WiFiMonitor: Manual location permission request")
-            locationManager.requestWhenInUseAuthorization()
+            locationManager.requestAlwaysAuthorization()
             locationManager.startUpdatingLocation()
 
             // If macOS doesn't present a prompt (common for background menu bar apps),
@@ -55,6 +55,7 @@ final class WiFiMonitor {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self else { return }
                 if self.locationAuthorizationStatus == .notDetermined {
+                    self.openLocationPrivacySettings()
                     self.update()
                 }
             }
@@ -159,7 +160,8 @@ final class WiFiMonitor {
                 internetJitter: nil,
                 internetPacketLoss: nil,
                 dnsLookupTime: nil,
-                dnsServer: dnsServer
+                dnsServer: dnsServer,
+                incident: nil
             )
         }
 
@@ -179,7 +181,7 @@ final class WiFiMonitor {
             band = nil
         }
 
-        return WiFiMetrics(
+        let metrics = WiFiMetrics(
             timestamp: Date(),
             ssid: ssid,
             routerIP: routerIP,
@@ -194,7 +196,31 @@ final class WiFiMonitor {
             internetJitter: internetPingEngine?.jitter,
             internetPacketLoss: internetPingEngine?.packetLoss,
             dnsLookupTime: measureDNSLookup(),
-            dnsServer: dnsServer
+            dnsServer: dnsServer,
+            incident: nil
+        )
+        return withIncident(metrics)
+    }
+
+    private func withIncident(_ metrics: WiFiMetrics) -> WiFiMetrics {
+        let incident = NetworkIncidentAnalyzer.detect(from: metrics)
+        return WiFiMetrics(
+            timestamp: metrics.timestamp,
+            ssid: metrics.ssid,
+            routerIP: metrics.routerIP,
+            band: metrics.band,
+            linkRate: metrics.linkRate,
+            signalStrength: metrics.signalStrength,
+            noiseFloor: metrics.noiseFloor,
+            routerPing: metrics.routerPing,
+            routerJitter: metrics.routerJitter,
+            routerPacketLoss: metrics.routerPacketLoss,
+            internetPing: metrics.internetPing,
+            internetJitter: metrics.internetJitter,
+            internetPacketLoss: metrics.internetPacketLoss,
+            dnsLookupTime: metrics.dnsLookupTime,
+            dnsServer: metrics.dnsServer,
+            incident: incident
         )
     }
 
@@ -264,6 +290,20 @@ final class WiFiMonitor {
         }
 
         return nil
+    }
+
+    private func openLocationPrivacySettings() {
+        let urls = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices"
+        ]
+
+        for rawURL in urls {
+            guard let url = URL(string: rawURL) else { continue }
+            if NSWorkspace.shared.open(url) {
+                return
+            }
+        }
     }
 }
 

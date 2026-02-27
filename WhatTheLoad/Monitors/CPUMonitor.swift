@@ -11,10 +11,10 @@ class CPUMonitor {
     private var smcReader: SMCReader?
 
     private struct CPUTicks {
-        let user: UInt64
-        let system: UInt64
-        let idle: UInt64
-        let nice: UInt64
+        let user: Int64
+        let system: Int64
+        let idle: Int64
+        let nice: Int64
     }
 
     func start(interval: TimeInterval = 1.0) {
@@ -56,19 +56,19 @@ class CPUMonitor {
 
         guard result == KERN_SUCCESS else { return nil }
 
-        let userTime = UInt64(cpuLoad.cpu_ticks.0)
-        let systemTime = UInt64(cpuLoad.cpu_ticks.1)
-        let idleTime = UInt64(cpuLoad.cpu_ticks.2)
-        let niceTime = UInt64(cpuLoad.cpu_ticks.3)
+        let userTime = Int64(cpuLoad.cpu_ticks.0)
+        let systemTime = Int64(cpuLoad.cpu_ticks.1)
+        let idleTime = Int64(cpuLoad.cpu_ticks.2)
+        let niceTime = Int64(cpuLoad.cpu_ticks.3)
         let currentTicks = CPUTicks(user: userTime, system: systemTime, idle: idleTime, nice: niceTime)
         let totalUsage: Double
 
         if let previousInfo {
             let previousTicks = CPUTicks(
-                user: UInt64(previousInfo.cpu_ticks.0),
-                system: UInt64(previousInfo.cpu_ticks.1),
-                idle: UInt64(previousInfo.cpu_ticks.2),
-                nice: UInt64(previousInfo.cpu_ticks.3)
+                user: Int64(previousInfo.cpu_ticks.0),
+                system: Int64(previousInfo.cpu_ticks.1),
+                idle: Int64(previousInfo.cpu_ticks.2),
+                nice: Int64(previousInfo.cpu_ticks.3)
             )
             totalUsage = usagePercentage(from: previousTicks, to: currentTicks)
         } else {
@@ -76,8 +76,14 @@ class CPUMonitor {
         }
         previousInfo = cpuLoad
 
-        let perCoreUsage = fetchPerCoreUsage()
-        let resolvedTotalUsage = perCoreUsage.isEmpty ? totalUsage : (perCoreUsage.reduce(0, +) / Double(perCoreUsage.count))
+        let measuredPerCoreUsage = fetchPerCoreUsage()
+        let hasPerCoreSignal = measuredPerCoreUsage.contains { $0 > 0.05 }
+        let perCoreUsage = hasPerCoreSignal
+            ? measuredPerCoreUsage
+            : fallbackPerCoreUsage(totalUsage: totalUsage)
+        let resolvedTotalUsage = perCoreUsage.isEmpty
+            ? totalUsage
+            : (perCoreUsage.reduce(0, +) / Double(perCoreUsage.count))
 
         return CPUMetrics(
             timestamp: Date(),
@@ -112,10 +118,10 @@ class CPUMonitor {
 
         for core in 0..<Int(cpuCount) {
             let base = core * cpuStateCount
-            let user = UInt64(cpuInfo[base + Int(CPU_STATE_USER)])
-            let system = UInt64(cpuInfo[base + Int(CPU_STATE_SYSTEM)])
-            let idle = UInt64(cpuInfo[base + Int(CPU_STATE_IDLE)])
-            let nice = UInt64(cpuInfo[base + Int(CPU_STATE_NICE)])
+            let user = Int64(cpuInfo[base + Int(CPU_STATE_USER)])
+            let system = Int64(cpuInfo[base + Int(CPU_STATE_SYSTEM)])
+            let idle = Int64(cpuInfo[base + Int(CPU_STATE_IDLE)])
+            let nice = Int64(cpuInfo[base + Int(CPU_STATE_NICE)])
             currentPerCoreTicks.append(CPUTicks(user: user, system: system, idle: idle, nice: nice))
         }
 
@@ -147,13 +153,11 @@ class CPUMonitor {
         return (Double(usedDelta) / Double(totalDelta)) * 100.0
     }
 
-    private func safeDelta(_ current: UInt64, _ previous: UInt64) -> UInt64 {
-        if current >= previous {
-            return current - previous
+    private func safeDelta(_ current: Int64, _ previous: Int64) -> UInt64 {
+        guard current >= previous else {
+            return UInt64(max(current, 0))
         }
-
-        // CPU counters can reset across wake/sleep and some topology changes.
-        return current
+        return UInt64(current - previous)
     }
 
     private func fetchTemperature() -> Double? {
@@ -163,5 +167,11 @@ class CPUMonitor {
     private func fetchFrequency() -> Double? {
         // Would use sysctl to get current CPU frequency
         return 3.2
+    }
+
+    private func fallbackPerCoreUsage(totalUsage: Double) -> [Double] {
+        let coreCount = max(ProcessInfo.processInfo.activeProcessorCount, 1)
+        let clamped = min(max(totalUsage, 0), 100)
+        return Array(repeating: clamped, count: coreCount)
     }
 }
