@@ -60,6 +60,19 @@ struct SettingsView: View {
                     Divider()
                         .padding(.vertical, 8)
 
+                    // Alerts
+                    SectionHeader(title: "ALERTS")
+
+                    Toggle("Low Battery Popup", isOn: $settings.lowBatteryAlertsEnabled)
+                        .font(.system(size: 12))
+
+                    if settings.lowBatteryAlertsEnabled {
+                        SliderRow(title: "Battery Alert Threshold", value: $settings.lowBatteryAlertThreshold, range: 5...50, unit: "%")
+                    }
+
+                    Divider()
+                        .padding(.vertical, 8)
+
                     // System
                     SectionHeader(title: "SYSTEM")
 

@@ -3,12 +3,14 @@ import CoreWLAN
 import Network
 import CoreLocation
 import SystemConfiguration
+import AppKit
 
 @Observable
 final class WiFiMonitor {
     var current: WiFiMetrics?
     var history: [WiFiMetrics] = []
     var locationAuthorizationStatus: CLAuthorizationStatus = .notDetermined
+    var didAttemptLocationPermissionRequest = false
 
     private var timer: Timer?
     private let client = CWWiFiClient.shared()
@@ -32,11 +34,31 @@ final class WiFiMonitor {
         locationAuthorizationStatus == .notDetermined
     }
 
+    var shouldShowManualLocationSettingsFallback: Bool {
+        isLocationPermissionDenied || (locationAuthorizationStatus == .notDetermined && didAttemptLocationPermissionRequest)
+    }
+
     func requestLocationPermission() {
         guard let locationManager else { return }
-        print("WiFiMonitor: Manual location permission request")
-        locationManager.requestWhenInUseAuthorization()
-        locationManager.startUpdatingLocation()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.didAttemptLocationPermissionRequest = true
+
+            NSApp.activate(ignoringOtherApps: true)
+            print("WiFiMonitor: Manual location permission request")
+            locationManager.requestWhenInUseAuthorization()
+            locationManager.startUpdatingLocation()
+
+            // If macOS doesn't present a prompt (common for background menu bar apps),
+            // keep the UI in a state that offers manual fallback to Settings.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self else { return }
+                if self.locationAuthorizationStatus == .notDetermined {
+                    self.update()
+                }
+            }
+        }
     }
 
     func refresh() {
@@ -48,6 +70,10 @@ final class WiFiMonitor {
         let delegate = WiFiLocationDelegate { [weak self] status in
             guard let self else { return }
             self.locationAuthorizationStatus = status
+            if status != .notDetermined {
+                self.didAttemptLocationPermissionRequest = false
+            }
+            self.updateLocationSampling(for: status)
             self.update()
         }
 
@@ -59,14 +85,7 @@ final class WiFiMonitor {
         let status = manager.authorizationStatus
         locationAuthorizationStatus = status
         print("WiFiMonitor: Location authorization status: \(status.rawValue)")
-
-        if status == .notDetermined {
-            print("WiFiMonitor: Requesting location authorization")
-            manager.requestWhenInUseAuthorization()
-        }
-
-        // Start location updates to trigger permission dialog and maintain authorization
-        manager.startUpdatingLocation()
+        updateLocationSampling(for: status)
     }
 
     func start(interval: TimeInterval = 1.0) {
@@ -104,6 +123,17 @@ final class WiFiMonitor {
 
         if history.count > 120 {
             history.removeFirst()
+        }
+    }
+
+    private func updateLocationSampling(for status: CLAuthorizationStatus) {
+        guard let locationManager else { return }
+
+        switch status {
+        case .authorizedAlways, .authorizedWhenInUse:
+            locationManager.startUpdatingLocation()
+        default:
+            locationManager.stopUpdatingLocation()
         }
     }
 
@@ -247,6 +277,11 @@ private final class WiFiLocationDelegate: NSObject, CLLocationManagerDelegate {
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
         print("WiFiMonitor: Location authorization changed to: \(status.rawValue)")
+        onAuthorizationChange(status)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        print("WiFiMonitor: (legacy) location authorization changed to: \(status.rawValue)")
         onAuthorizationChange(status)
     }
 }

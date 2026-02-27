@@ -18,6 +18,8 @@ class AppSettings: ObservableObject {
     @AppStorage("menuBarSparklineMetric") var menuBarSparklineMetric: String = "cpu"
 
     @AppStorage("launchAtLogin") var launchAtLogin: Bool = false
+    @AppStorage("lowBatteryAlertsEnabled") var lowBatteryAlertsEnabled: Bool = true
+    @AppStorage("lowBatteryAlertThreshold") var lowBatteryAlertThreshold: Double = 20.0
 
     func resetToDefaults() {
         cpuPollInterval = 1.0
@@ -33,5 +35,7 @@ class AppSettings: ObservableObject {
         menuBarSparklineMetric = "cpu"
 
         launchAtLogin = false
+        lowBatteryAlertsEnabled = true
+        lowBatteryAlertThreshold = 20.0
     }
 }

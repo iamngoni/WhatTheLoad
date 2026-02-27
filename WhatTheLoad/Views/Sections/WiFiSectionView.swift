@@ -68,6 +68,8 @@ struct WiFiSectionView: View {
                         icon: "location",
                         message: monitor.isLocationPermissionDenied
                             ? "Connected to Wi-Fi, but SSID is hidden. Allow Location access in System Settings to show the network name."
+                            : monitor.didAttemptLocationPermissionRequest
+                                ? "Connected to Wi-Fi, but macOS did not show the Location prompt. Open Location Settings and allow access for WhatTheLoad."
                             : "Connected to Wi-Fi. SSID is unavailable, but radio diagnostics are still shown.",
                         type: .warning
                     )
@@ -75,7 +77,6 @@ struct WiFiSectionView: View {
                     HStack(spacing: 8) {
                         if monitor.canRequestLocationPermission {
                             Button("Request Access") {
-                                NSApp.activate(ignoringOtherApps: true)
                                 monitor.requestLocationPermission()
                             }
                             .buttonStyle(.plain)
@@ -85,7 +86,9 @@ struct WiFiSectionView: View {
                             .background(Color.blue.opacity(0.15))
                             .foregroundColor(.blue)
                             .cornerRadius(6)
-                        } else if monitor.isLocationPermissionDenied {
+                        }
+
+                        if monitor.shouldShowManualLocationSettingsFallback {
                             Button("Open Location Settings") {
                                 openLocationPrivacySettings()
                             }
@@ -293,10 +296,17 @@ struct WiFiSectionView: View {
     }
 
     private func openLocationPrivacySettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") else {
-            return
+        let urls = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices"
+        ]
+
+        for rawURL in urls {
+            guard let url = URL(string: rawURL) else { continue }
+            if NSWorkspace.shared.open(url) {
+                return
+            }
         }
-        NSWorkspace.shared.open(url)
     }
 
     private func hasActiveWiFiConnection(_ metrics: WiFiMetrics) -> Bool {
