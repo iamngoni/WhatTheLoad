@@ -9,12 +9,16 @@ class NetworkMonitor {
     private var timer: Timer?
     private var previousBytesIn: UInt64 = 0
     private var previousBytesOut: UInt64 = 0
+    private var previousSampleAt: Date?
     private var pathMonitor: NWPathMonitor?
     private var cachedActiveConnections = 0
     private var lastConnectionCountRefresh = Date.distantPast
 
     func start(interval: TimeInterval = 1.0) {
         timer?.invalidate()
+        previousBytesIn = 0
+        previousBytesOut = 0
+        previousSampleAt = nil
         pathMonitor = NWPathMonitor()
         pathMonitor?.start(queue: DispatchQueue.global(qos: .background))
 
@@ -43,6 +47,7 @@ class NetworkMonitor {
     }
 
     private func fetchMetrics() -> NetworkMetrics? {
+        let now = Date()
         var bytesIn: UInt64 = 0
         var bytesOut: UInt64 = 0
         var interfaceName = "en0"
@@ -65,14 +70,24 @@ class NetworkMonitor {
             freeifaddrs(addrs)
         }
 
-        let uploadSpeed = previousBytesOut > 0 ? Double(bytesOut - previousBytesOut) : 0
-        let downloadSpeed = previousBytesIn > 0 ? Double(bytesIn - previousBytesIn) : 0
+        let elapsedSeconds: Double
+        if let previousSampleAt {
+            elapsedSeconds = max(now.timeIntervalSince(previousSampleAt), 0.001)
+        } else {
+            elapsedSeconds = 1.0
+        }
+
+        let uploadDelta = counterDelta(current: bytesOut, previous: previousBytesOut)
+        let downloadDelta = counterDelta(current: bytesIn, previous: previousBytesIn)
+        let uploadSpeed = previousSampleAt == nil ? 0 : Double(uploadDelta) / elapsedSeconds
+        let downloadSpeed = previousSampleAt == nil ? 0 : Double(downloadDelta) / elapsedSeconds
 
         previousBytesIn = bytesIn
         previousBytesOut = bytesOut
+        previousSampleAt = now
 
         return NetworkMetrics(
-            timestamp: Date(),
+            timestamp: now,
             uploadSpeed: uploadSpeed,
             downloadSpeed: downloadSpeed,
             interfaceName: interfaceName,
@@ -80,6 +95,18 @@ class NetworkMonitor {
             publicIP: nil, // Fetched async
             activeConnections: getActiveConnections()
         )
+    }
+
+    private func counterDelta(current: UInt64, previous: UInt64) -> UInt64 {
+        guard previous > 0 else { return 0 }
+
+        if current >= previous {
+            return current - previous
+        }
+
+        // Interface counters can reset across reconnects or interface swaps.
+        // Treat as a restart to avoid overflow and unrealistic spikes.
+        return current
     }
 
     private func getifaddrs_wrapper() -> UnsafeMutablePointer<ifaddrs>? {
