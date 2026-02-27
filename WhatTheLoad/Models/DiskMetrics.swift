@@ -7,6 +7,13 @@ struct DiskMetrics {
     let writeSpeed: Double
 }
 
+struct DiskSpaceConsumer: Identifiable {
+    var id: String { path }
+    let name: String
+    let path: String
+    let size: UInt64
+}
+
 struct VolumeInfo {
     let name: String
     let path: String
