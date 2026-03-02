@@ -10,6 +10,7 @@ struct ProcessesSectionView: View {
     @State private var inspectorSnapshot: ProcessInspectorSnapshot?
     @State private var isInspectingSelectedProcess = false
     @State private var pendingSignalAction: PendingSignalAction?
+    @State private var resolvedExecutablePaths: [Int32: String] = [:]
 
     enum SortColumn {
         case name, pid, cpu, memory
@@ -131,7 +132,7 @@ struct ProcessesSectionView: View {
                         .foregroundColor(Color.wtlSecondary)
                 }
 
-                Text(abbreviatedPath(selected.executablePath))
+                Text(abbreviatedPath(executablePath(for: selected)))
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundColor(Color.wtlTertiary)
                     .lineLimit(2)
@@ -283,8 +284,25 @@ struct ProcessesSectionView: View {
     }
 
     private func revealProcessInFinder(_ process: ProcessDetails) {
-        let url = URL(fileURLWithPath: process.executablePath)
+        guard let path = resolvedExecutablePaths[process.id] ?? ProcessMonitor.executablePath(for: process.id),
+              !path.isEmpty else {
+            return
+        }
+        resolvedExecutablePaths[process.id] = path
+        let url = URL(fileURLWithPath: path)
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func executablePath(for process: ProcessDetails) -> String {
+        if let resolved = resolvedExecutablePaths[process.id], !resolved.isEmpty {
+            return resolved
+        }
+
+        if !process.executablePath.isEmpty {
+            return process.executablePath
+        }
+
+        return "Path available when requested"
     }
 
     private func abbreviatedPath(_ path: String) -> String {

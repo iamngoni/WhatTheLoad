@@ -6,6 +6,17 @@ struct DashboardView: View {
     @State private var selectedTab = 0
     @State private var showingSettings = false
 
+    private let tabs: [(index: Int, icon: String, title: String)] = [
+        (0, "cpu", "CPU"),
+        (1, "memorychip", "Memory"),
+        (2, "arrow.up.arrow.down", "Network"),
+        (3, "wifi", "Wi-Fi"),
+        (4, "internaldrive", "Disk"),
+        (5, "list.bullet", "Processes"),
+        (6, "clock.badge.exclamationmark", "Timeline"),
+        (7, "battery.100", "Battery")
+    ]
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -19,6 +30,13 @@ struct DashboardView: View {
                 Text("uptime \(monitors.systemUptime)")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
+
+                Button(action: { NSApp.terminate(nil) }) {
+                    Image(systemName: "power")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Quit WhatTheLoad")
 
                 Button(action: { showingSettings = true }) {
                     Image(systemName: "gearshape")
@@ -35,18 +53,54 @@ struct DashboardView: View {
             Divider()
 
             // Tab strip
-            HStack(spacing: 12) {
-                TabButton(icon: "cpu", isSelected: selectedTab == 0) { selectedTab = 0 }
-                TabButton(icon: "memorychip", isSelected: selectedTab == 1) { selectedTab = 1 }
-                TabButton(icon: "arrow.up.arrow.down", isSelected: selectedTab == 2) { selectedTab = 2 }
-                TabButton(icon: "wifi", isSelected: selectedTab == 3) { selectedTab = 3 }
-                TabButton(icon: "internaldrive", isSelected: selectedTab == 4) { selectedTab = 4 }
-                TabButton(icon: "list.bullet", isSelected: selectedTab == 5) { selectedTab = 5 }
-                TabButton(icon: "clock.badge.exclamationmark", isSelected: selectedTab == 6) { selectedTab = 6 }
-                TabButton(icon: "battery.100", isSelected: selectedTab == 7) { selectedTab = 7 }
+            ScrollViewReader { proxy in
+                HStack(spacing: 8) {
+                    Button(action: { selectAdjacentTab(direction: -1) }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(canSelectPreviousTab ? .secondary : .secondary.opacity(0.35))
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSelectPreviousTab)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(tabs, id: \.index) { tab in
+                                TabButton(
+                                    icon: tab.icon,
+                                    isSelected: selectedTab == tab.index
+                                ) {
+                                    selectedTab = tab.index
+                                }
+                                .help(tab.title)
+                                .id(tab.index)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 12)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Button(action: { selectAdjacentTab(direction: 1) }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(canSelectNextTab ? .secondary : .secondary.opacity(0.35))
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSelectNextTab)
+                }
+                .padding(.horizontal, 12)
+                .onAppear {
+                    proxy.scrollTo(selectedTab, anchor: .center)
+                }
+                .onChange(of: selectedTab) { _, newValue in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(newValue, anchor: .center)
+                    }
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
 
             Divider()
 
@@ -112,6 +166,20 @@ struct DashboardView: View {
         .compactMap { $0 }
         .max()
     }
+
+    private var canSelectPreviousTab: Bool {
+        selectedTab > 0
+    }
+
+    private var canSelectNextTab: Bool {
+        selectedTab < (tabs.count - 1)
+    }
+
+    private func selectAdjacentTab(direction: Int) {
+        let nextTab = min(max(selectedTab + direction, 0), tabs.count - 1)
+        guard nextTab != selectedTab else { return }
+        selectedTab = nextTab
+    }
 }
 
 struct TabButton: View {
@@ -122,11 +190,11 @@ struct TabButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.system(size: 14))
                 .foregroundColor(isSelected ? .blue : .secondary)
-                .frame(width: 40, height: 32)
-                .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
-                .cornerRadius(6)
+                .frame(width: 36, height: 32)
+            .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+            .cornerRadius(6)
         }
         .buttonStyle(.plain)
     }

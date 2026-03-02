@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var batterySettingsOpenedAt: Date?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
         monitors.setPowerSaveMode(settings.powerSaveModeActive)
 
         // Start monitoring
@@ -25,8 +26,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.action = #selector(togglePopover)
+            button.action = #selector(handleStatusItemClick(_:))
             button.target = self
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
         // Create and start menu bar controller
@@ -58,6 +60,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         monitors.stopAll()
     }
 
+    @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else {
+            togglePopover()
+            return
+        }
+
+        switch event.type {
+        case .rightMouseUp:
+            popover.performClose(nil)
+            statusItem.menu = statusMenu()
+            sender.performClick(nil)
+            statusItem.menu = nil
+        default:
+            togglePopover()
+        }
+    }
+
     @objc func togglePopover() {
         guard let button = statusItem.button else { return }
 
@@ -66,6 +85,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
+    }
+
+    private func statusMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(
+            withTitle: "Open WhatTheLoad",
+            action: #selector(openDashboardFromMenu),
+            keyEquivalent: ""
+        )
+        menu.addItem(.separator())
+        menu.addItem(
+            withTitle: "Quit WhatTheLoad",
+            action: #selector(quitApplication),
+            keyEquivalent: "q"
+        )
+        menu.items.forEach { $0.target = self }
+        return menu
+    }
+
+    @objc private func openDashboardFromMenu() {
+        if !popover.isShown {
+            togglePopover()
+        }
+    }
+
+    @objc private func quitApplication() {
+        NSApp.terminate(nil)
     }
 
     private func startLowBatteryAlertMonitoring() {

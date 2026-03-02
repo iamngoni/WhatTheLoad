@@ -54,11 +54,7 @@ class ProcessMonitor {
 
             guard result == Int32(size) else { return nil }
 
-            var pathBuffer = [CChar](repeating: 0, count: Int(4096))
-            proc_pidpath(pid, &pathBuffer, UInt32(4096))
-
-            let path = String(cString: pathBuffer)
-            let name = (path as NSString).lastPathComponent
+            let name = processName(for: pid)
 
             let memoryUsage = info.pti_resident_size
             let totalCPUTime = UInt64(info.pti_total_user + info.pti_total_system)
@@ -78,8 +74,8 @@ class ProcessMonitor {
 
             return ProcessDetails(
                 id: pid,
-                name: name.isEmpty ? "Unknown" : name,
-                executablePath: path,
+                name: name,
+                executablePath: "",
                 cpuUsage: cpuUsage,
                 memoryUsage: memoryUsage,
                 state: .running
@@ -108,5 +104,19 @@ class ProcessMonitor {
             timestamp: sampleTime,
             processes: topProcesses
         )
+    }
+
+    private func processName(for pid: pid_t) -> String {
+        var nameBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        let result = proc_name(pid, &nameBuffer, UInt32(nameBuffer.count))
+        guard result > 0 else { return "Unknown" }
+        return String(cString: nameBuffer)
+    }
+
+    static func executablePath(for pid: pid_t) -> String? {
+        var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        let result = proc_pidpath(pid, &pathBuffer, UInt32(pathBuffer.count))
+        guard result > 0 else { return nil }
+        return String(cString: pathBuffer)
     }
 }
