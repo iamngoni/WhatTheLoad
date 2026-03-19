@@ -2,6 +2,26 @@ import Foundation
 import SwiftUI
 import Combine
 
+enum MenuBarItem: String, CaseIterable, Identifiable {
+    case cpu
+    case memory
+    case network
+    case disk
+    case battery
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .cpu: return "CPU"
+        case .memory: return "Memory"
+        case .network: return "Network"
+        case .disk: return "Disk"
+        case .battery: return "Battery"
+        }
+    }
+}
+
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
@@ -13,9 +33,16 @@ class AppSettings: ObservableObject {
     @AppStorage("processesPollInterval") var processesPollInterval: Double = 3.0
     @AppStorage("batteryPollInterval") var batteryPollInterval: Double = 10.0
 
-    @AppStorage("showMenuBarSparkline") var showMenuBarSparkline: Bool = true
-    @AppStorage("showMenuBarNetworkText") var showMenuBarNetworkText: Bool = true
-    @AppStorage("menuBarSparklineMetric") var menuBarSparklineMetric: String = "cpu"
+    @AppStorage("menuBarItems") var menuBarItemsRaw: String = "network,battery"
+
+    var menuBarItems: [MenuBarItem] {
+        get {
+            menuBarItemsRaw.split(separator: ",").compactMap { MenuBarItem(rawValue: String($0)) }
+        }
+        set {
+            menuBarItemsRaw = newValue.prefix(3).map(\.rawValue).joined(separator: ",")
+        }
+    }
 
     @AppStorage("launchAtLogin") var launchAtLogin: Bool = false
 
@@ -48,9 +75,7 @@ class AppSettings: ObservableObject {
         processesPollInterval = 3.0
         batteryPollInterval = 10.0
 
-        showMenuBarSparkline = true
-        showMenuBarNetworkText = true
-        menuBarSparklineMetric = "cpu"
+        menuBarItemsRaw = "network,battery"
 
         launchAtLogin = false
         alertsEnabled = true

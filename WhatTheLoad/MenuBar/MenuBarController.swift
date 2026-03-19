@@ -3,6 +3,7 @@ import AppKit
 class MenuBarController {
     private let statusItem: NSStatusItem
     private let monitors: MonitorCoordinator
+    private let settings = AppSettings.shared
     private var updateTimer: Timer?
 
     init(statusItem: NSStatusItem, monitors: MonitorCoordinator) {
@@ -26,39 +27,113 @@ class MenuBarController {
     private func updateStatusItem() {
         guard let button = statusItem.button else { return }
 
-        // Get network speeds
-        let upload = monitors.network.current?.uploadSpeed ?? 0
-        let download = monitors.network.current?.downloadSpeed ?? 0
+        let items = settings.menuBarItems
+        guard !items.isEmpty else {
+            button.attributedTitle = NSAttributedString(string: "WTL", attributes: baseAttributes)
+            return
+        }
 
-        // Create attributed string with network + battery text
         let attributedString = NSMutableAttributedString()
-        let baseAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
-            .foregroundColor: NSColor.white
-        ]
 
-        attributedString.append(NSAttributedString(string: "↓", attributes: baseAttributes))
-        attributedString.append(NSAttributedString(string: compactRate(download), attributes: baseAttributes))
-        attributedString.append(NSAttributedString(string: " ", attributes: baseAttributes))
-        attributedString.append(NSAttributedString(string: "↑", attributes: baseAttributes))
-        attributedString.append(NSAttributedString(string: compactRate(upload), attributes: baseAttributes))
-
-        if let battery = monitors.battery.current, let batteryTimeText = batteryTimeText(for: battery) {
-            attributedString.append(NSAttributedString(string: "  ", attributes: baseAttributes))
-
-            if let batteryIcon = batteryImage(for: battery) {
-                let attachment = NSTextAttachment()
-                attachment.image = batteryIcon
-                attachment.bounds = CGRect(x: 0, y: -2, width: 13, height: 13)
-                attributedString.append(NSAttributedString(attachment: attachment))
-                attributedString.append(NSAttributedString(string: " ", attributes: baseAttributes))
+        for (index, item) in items.enumerated() {
+            if index > 0 {
+                attributedString.append(NSAttributedString(string: "  ", attributes: baseAttributes))
             }
-
-            attributedString.append(NSAttributedString(string: batteryTimeText, attributes: baseAttributes))
+            appendContent(for: item, to: attributedString)
         }
 
         button.attributedTitle = attributedString
     }
+
+    private var baseAttributes: [NSAttributedString.Key: Any] {
+        [
+            .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
+            .foregroundColor: NSColor.white
+        ]
+    }
+
+    private func appendContent(for item: MenuBarItem, to string: NSMutableAttributedString) {
+        switch item {
+        case .cpu:
+            appendCPU(to: string)
+        case .memory:
+            appendMemory(to: string)
+        case .network:
+            appendNetwork(to: string)
+        case .disk:
+            appendDisk(to: string)
+        case .battery:
+            appendBattery(to: string)
+        }
+    }
+
+    // MARK: - Item Renderers
+
+    private func appendCPU(to string: NSMutableAttributedString) {
+        let usage = monitors.cpu.current?.totalUsage ?? 0
+        string.append(NSAttributedString(
+            string: String(format: "CPU %.0f%%", usage),
+            attributes: baseAttributes
+        ))
+    }
+
+    private func appendMemory(to string: NSMutableAttributedString) {
+        guard let mem = monitors.memory.current, mem.total > 0 else {
+            string.append(NSAttributedString(string: "MEM –", attributes: baseAttributes))
+            return
+        }
+        let usedPercent = Double(mem.used) / Double(mem.total) * 100
+        string.append(NSAttributedString(
+            string: String(format: "MEM %.0f%%", usedPercent),
+            attributes: baseAttributes
+        ))
+    }
+
+    private func appendNetwork(to string: NSMutableAttributedString) {
+        let download = monitors.network.current?.downloadSpeed ?? 0
+        let upload = monitors.network.current?.uploadSpeed ?? 0
+
+        string.append(NSAttributedString(string: "↓", attributes: baseAttributes))
+        string.append(NSAttributedString(string: compactRate(download), attributes: baseAttributes))
+        string.append(NSAttributedString(string: " ", attributes: baseAttributes))
+        string.append(NSAttributedString(string: "↑", attributes: baseAttributes))
+        string.append(NSAttributedString(string: compactRate(upload), attributes: baseAttributes))
+    }
+
+    private func appendDisk(to string: NSMutableAttributedString) {
+        guard let volume = monitors.disk.current?.volumes.first, volume.total > 0 else {
+            string.append(NSAttributedString(string: "DSK –", attributes: baseAttributes))
+            return
+        }
+        let freePercent = Double(volume.free) / Double(volume.total) * 100
+        string.append(NSAttributedString(
+            string: String(format: "DSK %.0f%% free", freePercent),
+            attributes: baseAttributes
+        ))
+    }
+
+    private func appendBattery(to string: NSMutableAttributedString) {
+        guard let battery = monitors.battery.current else { return }
+
+        if let batteryIcon = batteryImage(for: battery) {
+            let attachment = NSTextAttachment()
+            attachment.image = batteryIcon
+            attachment.bounds = CGRect(x: 0, y: -2, width: 13, height: 13)
+            string.append(NSAttributedString(attachment: attachment))
+            string.append(NSAttributedString(string: " ", attributes: baseAttributes))
+        }
+
+        if let timeText = batteryTimeText(for: battery) {
+            string.append(NSAttributedString(string: timeText, attributes: baseAttributes))
+        } else {
+            string.append(NSAttributedString(
+                string: String(format: "%.0f%%", battery.chargePercent),
+                attributes: baseAttributes
+            ))
+        }
+    }
+
+    // MARK: - Helpers
 
     private func compactRate(_ bytesPerSecond: Double) -> String {
         let units = ["B/s", "K/s", "M/s", "G/s"]

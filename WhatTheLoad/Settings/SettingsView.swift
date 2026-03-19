@@ -79,20 +79,36 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(title: "MENU BAR")
 
-            Toggle("Show Sparkline", isOn: $settings.showMenuBarSparkline)
-                .font(.system(size: 12))
+            Text("Select up to 3 items to display")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
 
-            Toggle("Show Network Speed", isOn: $settings.showMenuBarNetworkText)
-                .font(.system(size: 12))
-
-            Picker("Sparkline Metric", selection: $settings.menuBarSparklineMetric) {
-                Text("CPU").tag("cpu")
-                Text("Memory").tag("memory")
-                Text("Network").tag("network")
+            ForEach(MenuBarItem.allCases) { item in
+                Toggle(item.label, isOn: menuBarItemBinding(for: item))
+                    .font(.system(size: 12))
+                    .disabled(!isMenuBarItemSelected(item) && settings.menuBarItems.count >= 3)
             }
-            .pickerStyle(.segmented)
-            .font(.system(size: 11))
         }
+    }
+
+    private func isMenuBarItemSelected(_ item: MenuBarItem) -> Bool {
+        settings.menuBarItems.contains(item)
+    }
+
+    private func menuBarItemBinding(for item: MenuBarItem) -> Binding<Bool> {
+        Binding(
+            get: { isMenuBarItemSelected(item) },
+            set: { enabled in
+                var current = settings.menuBarItems
+                if enabled {
+                    guard current.count < 3 else { return }
+                    current.append(item)
+                } else {
+                    current.removeAll { $0 == item }
+                }
+                settings.menuBarItems = current
+            }
+        )
     }
 
     private var alertsSection: some View {
