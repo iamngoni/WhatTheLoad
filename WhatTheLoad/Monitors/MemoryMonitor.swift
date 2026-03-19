@@ -6,6 +6,12 @@ class MemoryMonitor {
     var history: [MemoryMetrics] = []
 
     private var timer: Timer?
+    private let totalMemory: UInt64 = {
+        var size: UInt64 = 0
+        var sizeLength = MemoryLayout<UInt64>.size
+        sysctlbyname("hw.memsize", &size, &sizeLength, nil, 0)
+        return size
+    }()
 
     func start(interval: TimeInterval = 2.0) {
         timer?.invalidate()
@@ -52,12 +58,8 @@ class MemoryMonitor {
 
         let used = active + inactive
 
-        var size: UInt64 = 0
-        var sizeLength = MemoryLayout<UInt64>.size
-        sysctlbyname("hw.memsize", &size, &sizeLength, nil, 0)
-
         let pressure: MemoryPressure
-        let usedPercentage = Double(used + wired) / Double(size)
+        let usedPercentage = Double(used + wired) / Double(totalMemory)
         if usedPercentage > 0.9 {
             pressure = .critical
         } else if usedPercentage > 0.7 {
@@ -72,7 +74,7 @@ class MemoryMonitor {
             wired: wired,
             compressed: compressed,
             free: free,
-            total: size,
+            total: totalMemory,
             pressure: pressure,
             swapUsed: UInt64(stats.swapins) * pageSize,
             swapTotal: UInt64(stats.swapins + stats.swapouts) * pageSize

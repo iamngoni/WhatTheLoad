@@ -5,6 +5,9 @@ class MenuBarController {
     private let monitors: MonitorCoordinator
     private let settings = AppSettings.shared
     private var updateTimer: Timer?
+    private var cachedSymbols: [String: NSImage] = [:]
+    private var cachedMenuBarItems: [MenuBarItem]?
+    private var lastMenuBarItemsRaw: String = ""
 
     init(statusItem: NSStatusItem, monitors: MonitorCoordinator) {
         self.statusItem = statusItem
@@ -27,7 +30,7 @@ class MenuBarController {
     private func updateStatusItem() {
         guard let button = statusItem.button else { return }
 
-        let items = settings.menuBarItems
+        let items = resolvedMenuBarItems()
         guard !items.isEmpty else {
             button.attributedTitle = NSAttributedString(string: "WTL", attributes: baseAttributes)
             return
@@ -69,11 +72,27 @@ class MenuBarController {
 
     // MARK: - Item Renderers
 
-    private func appendIcon(_ symbolName: String, to string: NSMutableAttributedString) {
+    private func resolvedMenuBarItems() -> [MenuBarItem] {
+        let raw = settings.menuBarItemsRaw
+        if raw != lastMenuBarItemsRaw {
+            lastMenuBarItemsRaw = raw
+            cachedMenuBarItems = settings.menuBarItems
+        }
+        return cachedMenuBarItems ?? []
+    }
+
+    private func cachedSymbol(_ symbolName: String) -> NSImage? {
+        if let cached = cachedSymbols[symbolName] { return cached }
         let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
         guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config) else { return }
+            .withSymbolConfiguration(config) else { return nil }
         image.isTemplate = true
+        cachedSymbols[symbolName] = image
+        return image
+    }
+
+    private func appendIcon(_ symbolName: String, to string: NSMutableAttributedString) {
+        guard let image = cachedSymbol(symbolName) else { return }
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = CGRect(x: 0, y: -2, width: 13, height: 13)
@@ -203,10 +222,6 @@ class MenuBarController {
             }
         }
 
-        let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
-        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
-        image?.isTemplate = true
-        return image
+        return cachedSymbol(symbolName)
     }
 }

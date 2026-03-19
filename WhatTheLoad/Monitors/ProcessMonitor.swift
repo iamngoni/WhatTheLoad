@@ -39,12 +39,17 @@ class ProcessMonitor {
         let maxCPUPercent = Double(ProcessInfo.processInfo.activeProcessorCount) * 100.0
         var currentCPUTimesByPID: [pid_t: UInt64] = [:]
 
-        var pids = [pid_t](repeating: 0, count: 1024)
-        let count = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+        // First call to get actual PID count
+        let pidCount = proc_listallpids(nil, 0)
+        guard pidCount > 0 else { return nil }
 
+        // Allocate buffer with some headroom for new processes
+        let bufferSize = Int(pidCount) + 64
+        var pids = [pid_t](repeating: 0, count: bufferSize)
+        let count = proc_listallpids(&pids, Int32(bufferSize * MemoryLayout<pid_t>.size))
         guard count > 0 else { return nil }
 
-        let actualCount = Int(count) / MemoryLayout<pid_t>.size
+        let actualCount = Int(count)
         let processes = pids.prefix(actualCount).compactMap { pid -> ProcessDetails? in
             guard pid > 0 else { return nil }
 
@@ -82,20 +87,21 @@ class ProcessMonitor {
             )
         }
 
-        // Keep a useful working set for both memory and CPU-oriented views.
-        let topByMemory = processes.sorted { $0.memoryUsage > $1.memoryUsage }.prefix(60)
-        let topByCPU = processes.sorted { $0.cpuUsage > $1.cpuUsage }.prefix(60)
+        // Use a single combined score sort to avoid two full O(n log n) sorts.
+        // Normalize CPU and memory into 0-1 range and combine.
+        let maxMem = processes.max(by: { $0.memoryUsage < $1.memoryUsage })?.memoryUsage ?? 1
+        let maxCPU = processes.max(by: { $0.cpuUsage < $1.cpuUsage })?.cpuUsage ?? 1
 
-        var seen = Set<pid_t>()
-        var topProcesses: [ProcessDetails] = []
-        for process in Array(topByCPU) + Array(topByMemory) {
-            if seen.insert(process.id).inserted {
-                topProcesses.append(process)
-            }
-            if topProcesses.count >= 100 {
-                break
-            }
+        let scored = processes.map { p -> (ProcessDetails, Double) in
+            let memScore = maxMem > 0 ? Double(p.memoryUsage) / Double(maxMem) : 0
+            let cpuScore = maxCPU > 0 ? p.cpuUsage / maxCPU : 0
+            return (p, memScore + cpuScore)
         }
+
+        let topProcesses = scored
+            .sorted { $0.1 > $1.1 }
+            .prefix(100)
+            .map(\.0)
 
         previousCPUTimesByPID = currentCPUTimesByPID
         previousSampleTimestamp = sampleTime

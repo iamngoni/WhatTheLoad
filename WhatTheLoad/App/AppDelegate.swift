@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Sentry
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -15,6 +16,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var batterySettingsOpenedAt: Date?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        SentrySDK.start { options in
+            options.dsn = "https://35ac070adb331566ef6c6b66d6ac5768@o1107818.ingest.us.sentry.io/4511069877960709"
+            options.tracesSampleRate = 0.2
+            options.enableUncaughtNSExceptionReporting = true
+        }
+
         NSApp.setActivationPolicy(.accessory)
         monitors.setPowerSaveMode(settings.powerSaveModeActive)
 

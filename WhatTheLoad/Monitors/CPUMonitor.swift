@@ -165,8 +165,7 @@ class CPUMonitor {
     }
 
     private func fetchFrequency() -> Double? {
-        // Would use sysctl to get current CPU frequency
-        return 3.2
+        return nil
     }
 
     private func fallbackPerCoreUsage(totalUsage: Double) -> [Double] {

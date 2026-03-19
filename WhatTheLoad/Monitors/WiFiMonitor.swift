@@ -20,6 +20,8 @@ final class WiFiMonitor {
     private var locationDelegate: WiFiLocationDelegate?
     private var dynamicStore: SCDynamicStore?
     private var currentRouterIP: String = "192.168.1.1"
+    private var cachedDNSLookupTime: Double?
+    private let dnsQueue = DispatchQueue(label: "WhatTheLoad.WiFiMonitor.DNS", qos: .utility)
 
     init() {
         dynamicStore = SCDynamicStoreCreate(nil, "WhatTheLoad.WiFiMonitor" as CFString, nil, nil)
@@ -46,7 +48,9 @@ final class WiFiMonitor {
             self.didAttemptLocationPermissionRequest = true
 
             NSApp.activate(ignoringOtherApps: true)
+            #if DEBUG
             print("WiFiMonitor: Manual location permission request")
+            #endif
             locationManager.requestAlwaysAuthorization()
             locationManager.startUpdatingLocation()
 
@@ -85,7 +89,9 @@ final class WiFiMonitor {
         // Check current authorization status
         let status = manager.authorizationStatus
         locationAuthorizationStatus = status
+        #if DEBUG
         print("WiFiMonitor: Location authorization status: \(status.rawValue)")
+        #endif
         updateLocationSampling(for: status)
     }
 
@@ -116,14 +122,20 @@ final class WiFiMonitor {
     }
 
     private func update() {
-        refreshRouterPingEngineIfNeeded()
-        guard let metrics = fetchMetrics() else { return }
+        let routerIP = getRouterIP()
+        refreshRouterPingEngineIfNeeded(routerIP: routerIP)
+        guard let metrics = fetchMetrics(routerIP: routerIP) else { return }
 
         current = metrics
         history.append(metrics)
 
         if history.count > 120 {
             history.removeFirst()
+        }
+
+        // Refresh DNS lookup asynchronously for next tick
+        dnsQueue.async { [weak self] in
+            self?.cachedDNSLookupTime = self?.measureDNSLookup()
         }
     }
 
@@ -138,13 +150,10 @@ final class WiFiMonitor {
         }
     }
 
-    private func fetchMetrics() -> WiFiMetrics? {
-        let routerIP = getRouterIP()
+    private func fetchMetrics(routerIP: String?) -> WiFiMetrics? {
         let dnsServer = getDNSServer()
 
         guard let interface = client.interface() else {
-            print("WiFiMonitor: No WiFi interface available")
-            // Return empty metrics if no WiFi interface available
             return WiFiMetrics(
                 timestamp: Date(),
                 ssid: nil,
@@ -166,8 +175,6 @@ final class WiFiMonitor {
         }
 
         let ssid = interface.ssid()
-        let channel = interface.wlanChannel()
-        print("WiFiMonitor: interface=\(interface.interfaceName ?? "unknown"), ssid=\(ssid ?? "nil"), channel=\(channel?.channelNumber ?? 0), band=\(channel?.channelBand.rawValue ?? 0)")
 
         let band: WiFiBand?
         if let channel = interface.wlanChannel() {
@@ -195,7 +202,7 @@ final class WiFiMonitor {
             internetPing: internetPingEngine?.currentPing,
             internetJitter: internetPingEngine?.jitter,
             internetPacketLoss: internetPingEngine?.packetLoss,
-            dnsLookupTime: measureDNSLookup(),
+            dnsLookupTime: cachedDNSLookupTime,
             dnsServer: dnsServer,
             incident: nil
         )
@@ -224,8 +231,8 @@ final class WiFiMonitor {
         )
     }
 
-    private func refreshRouterPingEngineIfNeeded() {
-        guard let routerIP = getRouterIP(), routerIP != currentRouterIP else { return }
+    private func refreshRouterPingEngineIfNeeded(routerIP: String?) {
+        guard let routerIP, routerIP != currentRouterIP else { return }
 
         currentRouterIP = routerIP
         routerPingEngine?.stop()
@@ -316,12 +323,16 @@ private final class WiFiLocationDelegate: NSObject, CLLocationManagerDelegate {
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
+        #if DEBUG
         print("WiFiMonitor: Location authorization changed to: \(status.rawValue)")
+        #endif
         onAuthorizationChange(status)
     }
 
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        #if DEBUG
         print("WiFiMonitor: (legacy) location authorization changed to: \(status.rawValue)")
+        #endif
         onAuthorizationChange(status)
     }
 }

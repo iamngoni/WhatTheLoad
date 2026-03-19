@@ -13,6 +13,8 @@ class NetworkMonitor {
     private var pathMonitor: NWPathMonitor?
     private var cachedActiveConnections = 0
     private var lastConnectionCountRefresh = Date.distantPast
+    private var isRefreshingConnections = false
+    private let connectionQueue = DispatchQueue(label: "WhatTheLoad.NetworkMonitor.Connections", qos: .utility)
 
     func start(interval: TimeInterval = 1.0) {
         timer?.invalidate()
@@ -150,12 +152,23 @@ class NetworkMonitor {
 
     private func getActiveConnections() -> Int {
         let now = Date()
-        if now.timeIntervalSince(lastConnectionCountRefresh) < 5 {
+        if now.timeIntervalSince(lastConnectionCountRefresh) < 5 || isRefreshingConnections {
             return cachedActiveConnections
         }
 
         lastConnectionCountRefresh = now
-        cachedActiveConnections = fetchActiveConnectionsViaNetstat() ?? cachedActiveConnections
+        isRefreshingConnections = true
+        connectionQueue.async { [weak self] in
+            guard let self else { return }
+            if let count = self.fetchActiveConnectionsViaNetstat() {
+                DispatchQueue.main.async {
+                    self.cachedActiveConnections = count
+                }
+            }
+            DispatchQueue.main.async {
+                self.isRefreshingConnections = false
+            }
+        }
         return cachedActiveConnections
     }
 

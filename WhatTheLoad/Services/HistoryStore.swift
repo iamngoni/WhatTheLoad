@@ -11,6 +11,7 @@ final class HistoryStore {
     private weak var monitorCoordinator: MonitorCoordinator?
     private let ioQueue = DispatchQueue(label: "WhatTheLoad.HistoryStore.IO", qos: .utility)
     private let retentionInterval: TimeInterval = 7 * 24 * 60 * 60
+    private var persistWorkItem: DispatchWorkItem?
 
     private init() {
         loadFromDisk()
@@ -33,7 +34,7 @@ final class HistoryStore {
     func recordEvent(_ event: TimelineEvent) {
         events.insert(event, at: 0)
         pruneToRetentionWindow()
-        persistToDisk()
+        debouncedPersist()
     }
 
     func events(in range: TimelineRange) -> [TimelineEvent] {
@@ -83,7 +84,7 @@ final class HistoryStore {
 
         snapshots.insert(snapshot, at: 0)
         pruneToRetentionWindow()
-        persistToDisk()
+        debouncedPersist()
     }
 
     private func pruneToRetentionWindow() {
@@ -114,6 +115,15 @@ final class HistoryStore {
         persistenceDirectory()?.appendingPathComponent("metric_snapshots.json")
     }
 
+    private func debouncedPersist() {
+        persistWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.persistToDisk()
+        }
+        persistWorkItem = workItem
+        ioQueue.asyncAfter(deadline: .now() + 2.0, execute: workItem)
+    }
+
     private func persistToDisk() {
         guard
             let directory = persistenceDirectory(),
@@ -134,7 +144,7 @@ final class HistoryStore {
 
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted]
+            encoder.outputFormatting = []
 
             if let encodedEvents = try? encoder.encode(eventsCopy) {
                 try? encodedEvents.write(to: eventsURL, options: .atomic)
