@@ -1,0 +1,3 @@
+there's a couple of warning/error dialogs we show to the user - e.g. low battery, low disk space etc 
+
+Can we remove the dialog popups - they're annoying as hell, or at least at an option in settings for someone to select if they want those popups or not
