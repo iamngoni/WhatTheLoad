@@ -1,0 +1,15 @@
+what's this file for?
+
+---
+
+default.profraw
+
+---
+
+Cool, I've removed it myself.
+
+Next thing I need is you see what we show on the menu bar? I want the user to be able to individually select which items they want on the menu bar, with a max of 3 items e.g. disk, battery, network, memory etc
+
+---
+
+Cool, stop the currently running WhatTheLoad app, delete it and install a new release build (update the version/build number as well)

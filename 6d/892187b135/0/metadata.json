@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "6d892187b135",
+  "session_id": "cead13cc-91f7-494a-9e9d-d07947b6698d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-19T06:50:46.672223Z",
+  "branch": "master",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "WhatTheLoad.xcodeproj/project.pbxproj"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2f87fc7d75b7",
+  "token_usage": {
+    "input_tokens": 44,
+    "cache_creation_tokens": 57647,
+    "cache_read_tokens": 1510336,
+    "output_tokens": 9454,
+    "api_call_count": 34
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-19T06:50:46.584218Z",
+    "agent_lines": 12,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 12,
+    "agent_percentage": 100
+  }
+}
