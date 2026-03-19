@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "ff202428c56c",
+  "session_id": "cead13cc-91f7-494a-9e9d-d07947b6698d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-19T07:00:22.362943Z",
+  "branch": "master",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "WhatTheLoad/MenuBar/MenuBarController.swift",
+    "WhatTheLoad/Settings/AppSettings.swift"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2f68d716e57c",
+  "token_usage": {
+    "input_tokens": 56,
+    "cache_creation_tokens": 61119,
+    "cache_read_tokens": 1982141,
+    "output_tokens": 12556,
+    "api_call_count": 42
+  },
+  "session_metrics": {
+    "turn_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-19T07:00:22.270852Z",
+    "agent_lines": 31,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 31,
+    "agent_percentage": 100
+  }
+}
