@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "8de7e7a03a57",
+  "session_id": "cead13cc-91f7-494a-9e9d-d07947b6698d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-19T07:49:34.031715Z",
+  "branch": "master",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "WhatTheLoad.xcodeproj/project.pbxproj",
+    "WhatTheLoad/App/AppDelegate.swift",
+    "WhatTheLoad/MenuBar/MenuBarController.swift",
+    "WhatTheLoad/Monitors/CPUMonitor.swift",
+    "WhatTheLoad/Monitors/MemoryMonitor.swift",
+    "WhatTheLoad/Monitors/NetworkMonitor.swift",
+    "WhatTheLoad/Monitors/ProcessMonitor.swift",
+    "WhatTheLoad/Monitors/WiFiMonitor.swift",
+    "WhatTheLoad/Services/HistoryStore.swift"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "a018827d5ed6",
+  "token_usage": {
+    "input_tokens": 1155,
+    "cache_creation_tokens": 175220,
+    "cache_read_tokens": 5669198,
+    "output_tokens": 26184,
+    "api_call_count": 78
+  },
+  "session_metrics": {
+    "turn_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-19T07:49:33.696395Z",
+    "agent_lines": 145,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 145,
+    "agent_percentage": 100
+  }
+}

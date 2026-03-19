@@ -1,0 +1,92 @@
+what's this file for?
+
+---
+
+default.profraw
+
+---
+
+Cool, I've removed it myself.
+
+Next thing I need is you see what we show on the menu bar? I want the user to be able to individually select which items they want on the menu bar, with a max of 3 items e.g. disk, battery, network, memory etc
+
+---
+
+Cool, stop the currently running WhatTheLoad app, delete it and install a new release build (update the version/build number as well)
+
+---
+
+is it possible to use small icons instead of saying DSK, CPU?
+
+---
+
+Then for disk, let's show used instead of free, and just show the percentage
+
+then yes kill the app and reinstall
+
+---
+
+Up next I would prefer if we focus on performance improvements for this
+
+also plug in sentry
+
+https://35ac070adb331566ef6c6b66d6ac5768@o1107818.ingest.us.sentry.io/4511069877960709
+
+---
+
+<task-notification>
+<task-id>bxu77ufu9</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bxu77ufu9.output</output-file>
+<status>completed</status>
+<summary>Background command "Resolve Sentry SPM package" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bxu77ufu9.output
+
+---
+
+<task-notification>
+<task-id>bvkbbjow6</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bvkbbjow6.output</output-file>
+<status>completed</status>
+<summary>Background command "Resolve Sentry SPM package" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bvkbbjow6.output
+
+---
+
+<task-notification>
+<task-id>bkjhvo48a</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bkjhvo48a.output</output-file>
+<status>completed</status>
+<summary>Background command "Build with Sentry" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bkjhvo48a.output
+
+---
+
+<task-notification>
+<task-id>bfsxqgpy8</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bfsxqgpy8.output</output-file>
+<status>completed</status>
+<summary>Background command "Build with Sentry (foreground)" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/bfsxqgpy8.output
+
+---
+
+<task-notification>
+<task-id>buufhtdka</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/buufhtdka.output</output-file>
+<status>completed</status>
+<summary>Background command "Build with Sentry after cache clear" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-modestnerd-Developer-Projects-WhatTheLoad/tasks/buufhtdka.output
+
+---
+
+Yes
