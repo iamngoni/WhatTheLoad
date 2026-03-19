@@ -69,22 +69,36 @@ class MenuBarController {
 
     // MARK: - Item Renderers
 
+    private func appendIcon(_ symbolName: String, to string: NSMutableAttributedString) {
+        let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
+        guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(config) else { return }
+        image.isTemplate = true
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = CGRect(x: 0, y: -2, width: 13, height: 13)
+        string.append(NSAttributedString(attachment: attachment))
+        string.append(NSAttributedString(string: " ", attributes: baseAttributes))
+    }
+
     private func appendCPU(to string: NSMutableAttributedString) {
+        appendIcon(MenuBarItem.cpu.symbolName, to: string)
         let usage = monitors.cpu.current?.totalUsage ?? 0
         string.append(NSAttributedString(
-            string: String(format: "CPU %.0f%%", usage),
+            string: String(format: "%.0f%%", usage),
             attributes: baseAttributes
         ))
     }
 
     private func appendMemory(to string: NSMutableAttributedString) {
+        appendIcon(MenuBarItem.memory.symbolName, to: string)
         guard let mem = monitors.memory.current, mem.total > 0 else {
-            string.append(NSAttributedString(string: "MEM –", attributes: baseAttributes))
+            string.append(NSAttributedString(string: "–", attributes: baseAttributes))
             return
         }
         let usedPercent = Double(mem.used) / Double(mem.total) * 100
         string.append(NSAttributedString(
-            string: String(format: "MEM %.0f%%", usedPercent),
+            string: String(format: "%.0f%%", usedPercent),
             attributes: baseAttributes
         ))
     }
@@ -101,13 +115,14 @@ class MenuBarController {
     }
 
     private func appendDisk(to string: NSMutableAttributedString) {
+        appendIcon(MenuBarItem.disk.symbolName, to: string)
         guard let volume = monitors.disk.current?.volumes.first, volume.total > 0 else {
-            string.append(NSAttributedString(string: "DSK –", attributes: baseAttributes))
+            string.append(NSAttributedString(string: "–", attributes: baseAttributes))
             return
         }
-        let freePercent = Double(volume.free) / Double(volume.total) * 100
+        let usedPercent = Double(volume.used) / Double(volume.total) * 100
         string.append(NSAttributedString(
-            string: String(format: "DSK %.0f%% free", freePercent),
+            string: String(format: "%.0f%%", usedPercent),
             attributes: baseAttributes
         ))
     }

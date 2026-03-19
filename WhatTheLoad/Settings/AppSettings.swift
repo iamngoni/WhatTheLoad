@@ -20,6 +20,16 @@ enum MenuBarItem: String, CaseIterable, Identifiable {
         case .battery: return "Battery"
         }
     }
+
+    var symbolName: String {
+        switch self {
+        case .cpu: return "cpu"
+        case .memory: return "memorychip"
+        case .network: return "arrow.up.arrow.down"
+        case .disk: return "internaldrive"
+        case .battery: return "battery.100"
+        }
+    }
 }
 
 class AppSettings: ObservableObject {
