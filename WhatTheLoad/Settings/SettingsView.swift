@@ -103,6 +103,10 @@ struct SettingsView: View {
                 .font(.system(size: 12))
 
             if settings.alertsEnabled {
+                Toggle("Show Popup Dialogs", isOn: $settings.alertPopupsEnabled)
+                    .font(.system(size: 12))
+
+
                 SliderRow(title: "Cooldown", value: $settings.alertsCooldownMinutes, range: 1...60, unit: "m")
 
                 Toggle("Quiet Hours", isOn: $settings.alertsQuietHoursEnabled)

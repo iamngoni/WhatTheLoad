@@ -20,6 +20,7 @@ class AppSettings: ObservableObject {
     @AppStorage("launchAtLogin") var launchAtLogin: Bool = false
 
     @AppStorage("alertsEnabled") var alertsEnabled: Bool = true
+    @AppStorage("alertPopupsEnabled") var alertPopupsEnabled: Bool = false
     @AppStorage("alertsCooldownMinutes") var alertsCooldownMinutes: Double = 10.0
     @AppStorage("alertsQuietHoursEnabled") var alertsQuietHoursEnabled: Bool = false
     @AppStorage("alertsQuietHoursStartHour") var alertsQuietHoursStartHour: Double = 22.0
@@ -53,6 +54,7 @@ class AppSettings: ObservableObject {
 
         launchAtLogin = false
         alertsEnabled = true
+        alertPopupsEnabled = false
         alertsCooldownMinutes = 10.0
         alertsQuietHoursEnabled = false
         alertsQuietHoursStartHour = 22.0

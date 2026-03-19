@@ -130,6 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         engine.onAlert = { [weak self] severity, title, message in
             guard title != "Low Battery" else { return }
+            guard self?.settings.alertPopupsEnabled == true else { return }
             self?.showBlockingAlert(severity: severity, title: title, message: message)
         }
         engine.start()
@@ -158,7 +159,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if isDischargingOnBattery && metrics.chargePercent <= threshold {
             guard !lowBatteryAlertShown else { return }
             lowBatteryAlertShown = true
-            showLowBatteryAlert(metrics: metrics, threshold: threshold)
+            if settings.alertPopupsEnabled {
+                showLowBatteryAlert(metrics: metrics, threshold: threshold)
+            }
             return
         }
 
